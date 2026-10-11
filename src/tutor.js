@@ -106,7 +106,8 @@ async function startRun(userId, skey) {
   if (getRun(userId, skey)) return;
   const prop = proposal(userId, skey);
   // One MYP criterion task per session (A → B → C → D through the plan): written by Claude when on, else from the bank.
-  const subs = C.subjectsOf(p.session), c = p.session.kind === 'fix' ? null : criteria.criterionFor(skey);
+  // MYP criterion tasks only for MYP courses.
+  const subs = C.subjectsOf(p.session), c = p.session.kind === 'fix' || C.programme !== 'MYP' ? null : criteria.criterionFor(skey);
   const crit = c ? { criterion: c, name: criteria.nameOf(subs[0], c) } : null;
   let critBank = null;
   if (crit && prefs.aiOn(userId)) { if (prop.ai.w === 0 && prop.bank.w.length) { prop.bank.w.pop(); prop.ai.w = 1; } }
@@ -355,7 +356,7 @@ function planView(userId) {
   const runs = Object.fromEntries(db.prepare("SELECT skey, done_at FROM runs WHERE user_id=? AND skey NOT LIKE 't-%'").all(userId).map((r) => [r.skey, r]));
   return WEEKS.map((w, wi) => ({ label: w.d, days: weekPlan(wi).map((s, di) => {
     const skey = `${wi}-${di}`;
-    return { skey, day: DAYS[di], date: sessionDate(wi, di), sub: s.sub, topic: s.topic, kind: s.kind, test: s.test || null, note: s.note || null, started: !!runs[skey], done: !!(runs[skey] && runs[skey].done_at) };
+    return { skey, day: DAYS[di], date: sessionDate(wi, di), sub: s.sub, color: s.color || null, topic: s.topic, kind: s.kind, test: s.test || null, note: s.note || null, started: !!runs[skey], done: !!(runs[skey] && runs[skey].done_at) };
   }) }));
 }
 

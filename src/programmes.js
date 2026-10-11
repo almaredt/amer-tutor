@@ -31,7 +31,7 @@ const PROGRAMMES = {
     groups: [
       { id: 'g1', name: 'Studies in language and literature', subjects: ['English A: Literature', 'English A: Language and literature', 'Arabic A'], levels: ['SL', 'HL'] },
       { id: 'g2', name: 'Language acquisition', subjects: ['Arabic B', 'French B', 'Spanish B', 'French ab initio', 'Spanish ab initio'], levels: ['SL', 'HL'] },
-      { id: 'g3', name: 'Individuals and societies', subjects: ['Business management', 'Economics', 'Geography', 'History', 'Psychology'], levels: ['SL', 'HL'] },
+      { id: 'g3', name: 'Individuals and societies', subjects: ['Business management', 'Economics', 'Geography', 'History', 'Psychology', 'Global politics'], levels: ['SL', 'HL'] },
       { id: 'g4', name: 'Sciences', subjects: ['Biology', 'Chemistry', 'Physics', 'Computer science', 'Environmental systems and societies'], levels: ['SL', 'HL'] },
       { id: 'g5', name: 'Mathematics', subjects: ['Mathematics: analysis and approaches', 'Mathematics: applications and interpretation'], levels: ['SL', 'HL'] },
       { id: 'g6', name: 'Arts', subjects: ['Visual arts', 'Music', 'Theatre'], levels: ['SL', 'HL'] },

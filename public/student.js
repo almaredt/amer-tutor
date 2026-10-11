@@ -10,6 +10,8 @@ const STEPS = {
   english: [['10 min', 'Learn', 'Open Learn topics for this lesson, or ask AMER for a short lesson.'], ['10 min', 'Quiz', 'Techniques, context and structure questions.'], ['10 min', 'Written', 'Write the paragraph, mark it, then use "Explain this question" for feedback.']],
   learn: [['10 min', 'Learn', 'New topic? Open "Need a lesson first?" and send the prompt to AMER.'], ['10 min', 'Quiz', 'Red "REVIEW" questions are old mistakes coming back.'], ['10 min', 'Written', 'Answer, then check with the mark scheme.']],
 };
+// Learn step for courses without the AMER lesson prompt (it is set up for Grade 9 MYP only).
+const LEARN_OWN = ['10 min', 'Learn', 'New topic? Read your class notes on it first, then use "Explain this question" on every mistake.'];
 const KIND = { learn: 'New lesson', practice: 'Practice', review: 'Review', mock: 'Test prep', fix: 'Mistakes day' };
 
 async function boot() {
@@ -97,7 +99,7 @@ function renderNav() {
   ST.plan.weeks[ST.selW].days.forEach((d, i) => {
     const b = document.createElement('button'); b.setAttribute('role', 'tab');
     b.className = 'day' + (i === ST.selD ? ' sel' : '') + (ST.selW === ST.todayW && i === ST.todayD ? ' today' : '') + (d.done ? ' isdone' : '');
-    b.innerHTML = `<span class="dn">${d.day.slice(0, 3)}</span><span class="dd">${fmtDate(d.date)}</span><span class="chip c-${d.sub}">${d.sub === 'Mock' ? 'Mock test' : d.sub}</span>`;
+    b.innerHTML = `<span class="dn">${d.day.slice(0, 3)}</span><span class="dd">${fmtDate(d.date)}</span><span class="chip c-${col(d)}">${d.sub === 'Mock' ? 'Mock test' : esc(d.sub)}</span>`;
     b.onclick = () => { ST.selD = i; renderNav(); openSession(); };
     db.appendChild(b);
   });
@@ -118,6 +120,8 @@ function renderSide() {
   }).join('');
 }
 
+// Colour family of a session: a course may name its own (e.g. "Math AA SL" uses Math's colour).
+const col = (d) => d.color || (/^[A-Za-z]+$/.test(d.sub) ? d.sub : 'Other');
 const day = () => (ST.mode === 'learn' && ST.quiz ? ST.quiz : ST.plan.weeks[ST.selW].days[ST.selD]);
 const skey = () => day().skey;
 
@@ -131,13 +135,13 @@ async function openSession() {
   if (!ST.plan.weeks.length) { renderNoPlan(); return; }
   const d = day(), k = d.skey;
   if (ST.tKey !== k) { clearInterval(ST.timer); ST.timer = null; ST.tLeft = sessSecs(); ST.tKey = k; }
-  $('card').innerHTML = `<div class="card s-${d.sub}">
-    <div class="when"><span class="chip c-${d.sub}">${d.sub === 'Mock' ? 'Mock test' : d.sub}</span><span class="label">${d.day} ${fmtDate(d.date)} · ${KIND[d.kind]} · ${ST.prefs.sessionMinutes} min</span></div>
+  $('card').innerHTML = `<div class="card s-${col(d)}">
+    <div class="when"><span class="chip c-${col(d)}">${d.sub === 'Mock' ? 'Mock test' : esc(d.sub)}</span><span class="label">${d.day} ${fmtDate(d.date)} · ${KIND[d.kind]} · ${ST.prefs.sessionMinutes} min</span></div>
     <h2>${esc(d.topic)}</h2>
     ${d.test ? `<div class="alert"><strong>Test ahead:</strong> ${esc(d.test)}</div>` : ''}
     ${d.note ? `<div class="alert"><strong>Heads up:</strong> ${esc(d.note)}</div>` : ''}
-    <ol class="steps">${(d.sub === 'English' ? STEPS.english : STEPS[d.kind]).map((s) => `<li><span class="t">${s[0]}</span><div><b>${s[1]}</b><p>${esc(s[2])}</p></div></li>`).join('')}</ol>
-    <details class="prompt" ${d.kind === 'fix' ? 'hidden' : ''}><summary>${d.kind === 'learn' ? 'Need a lesson first? Ask AMER' : 'Need help with the topic? Ask AMER'}</summary>
+    <ol class="steps">${(d.sub === 'English' ? STEPS.english : d.kind === 'learn' && !(ST.me.course && ST.me.course.grade === 9) ? [LEARN_OWN, ...STEPS.learn.slice(1)] : STEPS[d.kind]).map((s) => `<li><span class="t">${s[0]}</span><div><b>${s[1]}</b><p>${esc(s[2])}</p></div></li>`).join('')}</ol>
+    <details class="prompt" ${d.kind === 'fix' || !(ST.me.course && ST.me.course.programme === 'MYP' && ST.me.course.grade === 9) ? 'hidden' : ''}><summary>${d.kind === 'learn' ? 'Need a lesson first? Ask AMER' : 'Need help with the topic? Ask AMER'}</summary>
       <code id="pt">${esc(lessonPrompt(d))}</code><button class="btn" id="copy">Copy prompt</button></details>
     <div class="prac" id="prac"><p class="note"><span class="spin"></span>Loading…</p></div>
     <div class="row"><button class="btn" id="doneBtn" hidden></button></div>

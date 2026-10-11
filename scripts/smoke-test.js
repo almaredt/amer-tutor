@@ -252,6 +252,30 @@ const server = app.listen(0, async () => {
     const memAfter = (await req('s', 'GET', '/api/plan')).data.memory;
     assert.equal(memAfter.Math.toLearn + memAfter.Physics.toLearn, memBefore.Math.toLearn + memBefore.Physics.toLearn, 'memory bank kept');
 
+    // ---- Grade 11 DP: a plan built from the student's own subjects ----
+    const G11 = { school_id: uptown.id, programme: 'DP', grade: 11, course_id: 'uptown-g11-2026t1',
+      subjects: [{ group: 'g5', subject: 'Mathematics: analysis and approaches', level: 'SL' }, { group: 'g4', subject: 'Chemistry', level: 'HL' }, { group: 'g3', subject: 'Psychology', level: 'SL' }, { group: 'g2', subject: 'French B', level: 'SL' }] };
+    assert.equal((await req('admin', 'POST', '/api/admin/students', { username: 'ali11', display_name: 'Ali', password: 'studypass1', profile: { ...G11, course_id: 'uptown-g9-2026t1' } })).status, 400, 'G9 course refused for DP 11');
+    assert.equal((await req('admin', 'POST', '/api/admin/students', { username: 'ali11', display_name: 'Ali', password: 'studypass1', profile: G11 })).status, 200);
+    await req('ali', 'POST', '/api/login', { username: 'ali11', password: 'studypass1' });
+    const pa = (await req('ali', 'GET', '/api/plan')).data;
+    const subs11 = new Set(pa.weeks.flatMap((w) => w.days.map((d) => d.sub)));
+    assert.deepEqual([...subs11].sort(), ['Chemistry HL', 'Math AA SL', 'Mistakes', 'Psychology SL'], 'only his subjects (French B has no units yet)');
+    assert.ok(pa.weeks[0].days.every((d) => d.kind === 'fix' || d.note), 'holiday note in week 1');
+    assert.ok(pa.weeks.flatMap((w) => w.days).some((d) => d.kind === 'mock' && /Psychology/.test(d.test || '')), 'test prep before the Psychology summative');
+    assert.ok(pa.tests.length === 1 && pa.weeks[1].days[0].color, 'tests and colours sent');
+    const mathDay = pa.weeks[1].days.find((d) => d.sub === 'Math AA SL');
+    const r11 = await req('ali', 'POST', `/api/runs/${mathDay.skey}/start`, {});
+    assert.equal(r11.status, 200, JSON.stringify(r11.data));
+    assert.ok(r11.data.mcq.length === 10 && r11.data.written.length === 5, 'Claude fills a DP session (no bank)');
+    assert.ok(!r11.data.written.some((x) => x.crit), 'no MYP criterion task in DP');
+    const q11 = db.prepare('SELECT subject, course_id, set_code FROM questions WHERE id=?').get(r11.data.mcq[0].id);
+    assert.ok(q11.subject === 'Math AA SL' && q11.course_id === 'uptown-g11-2026t1' && q11.set_code === 'MA2', JSON.stringify(q11));
+    assert.equal((await req('ali', 'GET', '/api/me')).data.course.programme, 'DP');
+    assert.equal((await req('ali', 'GET', '/api/topics/MA2/last')).status, 404, 'no Learn topics for this course yet');
+    // Amer's Grade 9 plan is unchanged
+    assert.equal((await req('s', 'GET', '/api/plan')).data.weeks[0].days[0].sub, 'Math');
+
     // ---- plans and the per-student daily Claude cap ----
     const bill = (await req('admin', 'GET', '/api/admin/billing')).data;
     assert.ok(bill.enabled === false && bill.plans.free.dailyUsd > 0, 'billing off by default, free cap set');

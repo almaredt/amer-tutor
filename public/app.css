@@ -1,17 +1,17 @@
 /* Amer Tutor — shared styles. Layout: exercise-book page with week strip, day tabs, session card and side rail. */
 :root{
   --bg:#f5f7fb; --paper:#ffffff; --ink:#18202e; --muted:#5b6678; --line:#dfe4ee; --grid:rgba(40,70,140,.06);
-  --math:#2459c8; --math-bg:#e8effd; --phys:#c9561b; --phys-bg:#fdeee5; --chem:#1d8a4f; --chem-bg:#e4f5eb; --mock:#a8730a; --mock-bg:#fdf3dc; --eng:#a23a72; --eng-bg:#f9e6ef;
+  --math:#2459c8; --math-bg:#e8effd; --phys:#c9561b; --phys-bg:#fdeee5; --chem:#1d8a4f; --chem-bg:#e4f5eb; --mock:#a8730a; --mock-bg:#fdf3dc; --eng:#a23a72; --eng-bg:#f9e6ef; --oth:#0f766e; --oth-bg:#dcf2ee;
   --good:#1d8a4f; --good-bg:#e3f4ea; --bad:#c0392b; --bad-bg:#fbe7e4; --warn:#c0392b;
   --display:"Sora",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#10141c; --paper:#171d28; --ink:#e8ecf4; --muted:#9aa5b8; --line:#2a3242; --grid:rgba(140,170,240,.05);
-  --math:#7fa6ff; --math-bg:#1c2a48; --phys:#ff9a62; --phys-bg:#3a2216; --chem:#5fd393; --chem-bg:#15301f; --mock:#f2c45a; --mock-bg:#3a2e12; --eng:#f08cbd; --eng-bg:#3a1a2b;
+  --math:#7fa6ff; --math-bg:#1c2a48; --phys:#ff9a62; --phys-bg:#3a2216; --chem:#5fd393; --chem-bg:#15301f; --mock:#f2c45a; --mock-bg:#3a2e12; --eng:#f08cbd; --eng-bg:#3a1a2b; --oth:#5fd3c4; --oth-bg:#123330;
   --good:#5fd393; --good-bg:#15301f; --bad:#ff7a6b; --bad-bg:#3a1c18; --warn:#ff7a6b; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#10141c; --paper:#171d28; --ink:#e8ecf4; --muted:#9aa5b8; --line:#2a3242; --grid:rgba(140,170,240,.05);
-  --math:#7fa6ff; --math-bg:#1c2a48; --phys:#ff9a62; --phys-bg:#3a2216; --chem:#5fd393; --chem-bg:#15301f; --mock:#f2c45a; --mock-bg:#3a2e12; --eng:#f08cbd; --eng-bg:#3a1a2b;
+  --math:#7fa6ff; --math-bg:#1c2a48; --phys:#ff9a62; --phys-bg:#3a2216; --chem:#5fd393; --chem-bg:#15301f; --mock:#f2c45a; --mock-bg:#3a2e12; --eng:#f08cbd; --eng-bg:#3a1a2b; --oth:#5fd3c4; --oth-bg:#123330;
   --good:#5fd393; --good-bg:#15301f; --bad:#ff7a6b; --bad-bg:#3a1c18; --warn:#ff7a6b; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
@@ -279,3 +279,6 @@ html.text-large{font-size:112.5%}
 .subj select:disabled{opacity:.4}
 .form-row>.field{min-width:0}
 .form-row .field select,.form-row .field input{width:100%;min-width:0}
+
+/* subjects outside the four core colours (DP Economics, Psychology, ...) */
+.c-Other{color:var(--oth);background:var(--oth-bg)} .s-Other{--subj:var(--oth)}

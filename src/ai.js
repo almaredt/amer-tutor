@@ -37,6 +37,15 @@ function userDayCost(userId) {
   return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['claude-opus-5-5']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
 }
 
+// Who the student is, for every prompt: "Grade 11 IB Diploma Programme (DP) student (about 16)".
+const PROG = { PYP: 'IB Primary Years Programme (PYP)', MYP: 'IB MYP', DP: 'IB Diploma Programme (DP)' };
+function learner(userId) {
+  const u = db.prepare('SELECT programme, grade FROM users WHERE id=?').get(userId) || {};
+  if (!u.grade) return 'Grade 9 IB MYP student (age 14)';
+  return `Grade ${u.grade} ${PROG[u.programme] || 'IB'} student (about ${u.grade + 5})`;
+}
+const isDP = (userId) => (db.prepare('SELECT programme FROM users WHERE id=?').get(userId) || {}).programme === 'DP';
+
 function log(userId, kind, usage, ok = 1, model = modelFor(kind)) {
   db.prepare('INSERT INTO ai_log (user_id, kind, model, input_tokens, output_tokens, ok) VALUES (?,?,?,?,?,?)')
     .run(userId, kind, MOCK ? 'mock' : model, usage?.input_tokens || 0, usage?.output_tokens || 0, ok);
@@ -111,11 +120,12 @@ async function generateQuestions(userId, { subject, topic, nm, nw, avoid, crit }
         : { q: `[Test] ${topic}: written question ${i + 1}. Explain.`, points: ['First point', 'Second point'] })),
     };
   }
-  const prompt = `You write practice questions for a Grade 9 IB MYP student (Extended level) at an international school in Dubai.
+  const dp = isDP(userId);
+  const prompt = `You write practice questions for a ${learner(userId)} at an international school in Dubai.
 Subject: ${subject}
 Topic: ${topic}
 
-Write ${nm} multiple-choice questions and ${nw} written exam-style questions on exactly this topic. Mix easier questions with harder Extension ones, like a real MYP test. ${subject === 'English' ? 'This is MYP English Language and Literature. Do NOT quote To Kill a Mockingbird or any other published text; for analysis questions write your own short original extract (2-4 sentences or lines) inside the question.' : 'Use SI units and Unicode for symbols (x², H₂O, Δ, →).'}
+Write ${nm} multiple-choice questions and ${nw} written exam-style questions on exactly this topic. Mix easier questions with harder Extension ones, like a real ${dp ? 'IB DP exam' : 'MYP test'}. ${/English/.test(subject) ? 'This is English Language and Literature. Do NOT quote To Kill a Mockingbird or any other published text; for analysis questions write your own short original extract (2-4 sentences or lines) inside the question.' : 'Use SI units and Unicode for symbols (x², H₂O, Δ, →).'}
 Do not repeat any of these existing questions:
 ${avoid.slice(0, 40).map((a) => '- ' + a).join('\n')}
 
@@ -123,7 +133,8 @@ Rules:
 - Each multiple-choice question has exactly 4 options and exactly one correct answer. Wrong options should reflect common student mistakes.
 - Work out every answer and every calculation twice before you save it. Accuracy matters more than variety.
 - "explanation": 1-2 sentences on why the correct answer is right, showing the calculation if there is one.
-- Each written question says what to do (calculate, explain, describe) and has 2 to 4 mark-scheme points, 1 mark each.
+- Each written question says what to do (calculate, explain, describe) and has 2 to 4 mark-scheme points, 1 mark each.${dp ? `
+- DP style: written questions read like IB DP Paper 1/Paper 2 items with IB command terms. Use the level given in the subject (SL or HL); HL questions may go beyond SL. Mark-scheme points follow IB style: method (M1), accuracy (A1) and reasoning (R1) points as separate items, e.g. "M1 substitutes into the sum formula".` : ''}
 ${crit ? critInstructions(subject, crit) : ''}
 Save them by calling the save_questions tool. Do not write anything else.`;
   const res = await call(userId, 'generate', {
@@ -149,7 +160,7 @@ async function explainMcq(userId, body, choice) {
   const right = choice === body.answer;
   const res = await call(userId, 'explain', {
     max_tokens: 700,
-    messages: [{ role: 'user', content: `You are AMER, a patient tutor for a Grade 9 IB MYP student (age 14). Explain this multiple-choice question simply and step by step, in under 150 words. Plain text only: no markdown, no headings, no bold.
+    messages: [{ role: 'user', content: `You are AMER, a patient tutor for a ${learner(userId)}. Explain this multiple-choice question simply and step by step, in under 150 words. Plain text only: no markdown, no headings, no bold.
 
 Question: ${body.q}
 Options: ${body.options.map((o, j) => L[j] + '. ' + o).join(' | ')}
@@ -165,7 +176,7 @@ async function explainWritten(userId, body, text) {
   if (MOCK) { log(userId, 'explain', null); return '[Test explanation] A full-marks answer covers every mark-scheme point.'; }
   const res = await call(userId, 'explain', {
     max_tokens: 900,
-    messages: [{ role: 'user', content: `You are AMER, a patient tutor for a Grade 9 IB MYP student (age 14). Help them understand this written exam question, in under 200 words. Plain text only: no markdown, no headings, no bold.
+    messages: [{ role: 'user', content: `You are AMER, a patient tutor for a ${learner(userId)}. Help them understand this written exam question, in under 200 words. Plain text only: no markdown, no headings, no bold.
 
 Question: ${body.q}
 Mark scheme (1 mark per point): ${body.points.map((p, j) => `${j + 1}) ${p}`).join(' ')}
@@ -190,7 +201,7 @@ async function markWritten(userId, body, text) {
     max_tokens: 600,
     tools: [MARK_TOOL],
     tool_choice: { type: 'auto' },
-    messages: [{ role: 'user', content: `Mark this Grade 9 IB MYP student's answer fairly against the mark scheme. Award a point only if the answer clearly contains it (different wording is fine; correct units required where the point includes them).
+    messages: [{ role: 'user', content: `Mark this ${learner(userId)}'s answer fairly against the mark scheme. Award a point only if the answer clearly contains it (different wording is fine; correct units required where the point includes them).
 
 Question: ${body.q}
 Mark scheme:
@@ -226,7 +237,7 @@ async function markPhoto(userId, body, imageB64, mediaType) {
     tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: [
       { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageB64 } },
-      { type: 'text', text: `The photo shows a Grade 9 IB MYP student's handwritten working for this question.
+      { type: 'text', text: `The photo shows a ${learner(userId)}'s handwritten working for this question.
 
 Question: ${body.q}
 Mark scheme (1 mark per point):
@@ -306,7 +317,7 @@ async function askTopic(userId, { subject, title, context, question }) {
   if (MOCK) { log(userId, 'ask', null); return `[Test answer] About ${title}: ${question}`; }
   const res = await call(userId, 'ask', {
     max_tokens: 900,
-    messages: [{ role: 'user', content: `You are AMER, a patient tutor for a Grade 9 IB MYP student (age 14, Extended level) at an international school in Dubai.
+    messages: [{ role: 'user', content: `You are AMER, a patient tutor for a ${learner(userId)} at an international school in Dubai.
 Topic: ${subject}: ${title}
 What the lesson covers: ${context}
 The student asks: ${question}
