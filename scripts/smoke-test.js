@@ -68,20 +68,20 @@ const server = app.listen(0, async () => {
     const mk = await req('s', 'POST', '/api/runs/0-1/aimark', { qid: w0.id });
     assert.equal(mk.status, 200);
 
-    // SRS: q0 and w0 are due on Thursday's physics review
+    // SRS: q0 and w0 are due on next week's Thursday physics review (week 0 Thursday is the Chemistry review)
     let srs = db.prepare('SELECT * FROM srs').all();
     assert.equal(srs.length, 2, 'two items in memory bank: ' + JSON.stringify(srs));
-    v = await req('s', 'GET', '/api/runs/0-4');
+    v = await req('s', 'GET', '/api/runs/1-4');
     assert.equal(v.data.mix.rev, 2, 'review items appear on Thursday');
-    v = await req('s', 'POST', '/api/runs/0-4/start', {});
+    v = await req('s', 'POST', '/api/runs/1-4/start', {});
     const rq = v.data.mcq.find((q) => q.id === q0.id);
     assert.ok(rq && rq.tag.kind === 'review', 'old mistake is tagged REVIEW');
     assert.equal(v.data.mcq.length, 10); assert.ok(v.data.mcq.some((q) => q.tag && q.tag.kind === 'new'), 'AI fills the gaps');
-    await req('s', 'POST', '/api/runs/0-4/answer', { qid: q0.id, choice: ansOf(q0.id) });
+    await req('s', 'POST', '/api/runs/1-4/answer', { qid: q0.id, choice: ansOf(q0.id) });
     srs = db.prepare('SELECT * FROM srs WHERE qid=?').get(q0.id);
     assert.equal(srs.box, 2, 'right answer moves the item up a box');
     // reset restores state
-    await req('s', 'POST', '/api/runs/0-4/reset', {});
+    await req('s', 'POST', '/api/runs/1-4/reset', {});
     assert.equal(db.prepare('SELECT box FROM srs WHERE qid=?').get(q0.id).box, 1, 'reset restores memory bank');
 
     // Friday mistakes day
