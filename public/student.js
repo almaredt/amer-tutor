@@ -197,6 +197,21 @@ function mcqEl(q, n) {
   return el;
 }
 
+// Shrink a phone photo to at most 1600 px on the long side (JPEG) before upload: faster, cheaper, still readable.
+function shrinkPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file is not a photo the browser can open. Use JPG or PNG.')); };
+    img.src = url;
+  });
+}
+
 function writtenEl(q, n) {
   const el = document.createElement('div'); el.className = 'q'; const d = day();
   el.innerHTML = `<div class="qh"><span class="num">W${n + 1}</span><span class="qt">${esc(q.q)}</span>${tagHtml(q)}<span class="marks">[${q.marks}]</span></div>
@@ -207,8 +222,23 @@ function writtenEl(q, n) {
   const draw = () => {
     if (!q.points) {
       const ready = ta.value.trim().length >= 10;
-      msw.innerHTML = `<button class="btn" ${ready ? '' : 'disabled'}>Check with mark scheme</button>${ready ? '' : ' <span class="note">Write your answer first.</span>'}`;
-      msw.querySelector('button').onclick = async () => {
+      msw.innerHTML = `<div class="row"><button class="btn" data-check ${ready ? '' : 'disabled'}>Check with mark scheme</button>
+        ${ST.run.aiAvailable ? '<label class="btn photo-btn">📷 Photo of my working<input type="file" accept="image/*" hidden></label>' : ''}
+        ${ready ? '' : '<span class="note">Type your answer, or take a photo of your working on paper.</span>'}</div><div class="photo-msg note"></div>`;
+      const fileIn = msw.querySelector('input[type=file]');
+      if (fileIn) fileIn.onchange = async () => {
+        const f = fileIn.files && fileIn.files[0]; if (!f) return;
+        const lbl = msw.querySelector('.photo-btn'), msg = msw.querySelector('.photo-msg');
+        lbl.classList.add('busy'); msg.innerHTML = '<span class="spin"></span>Claude is reading your working…';
+        try {
+          clearTimeout(saveT);
+          if (ta.value.trim()) await api(`/api/runs/${d.skey}/text`, { qid: q.id, text: ta.value });
+          const image = await shrinkPhoto(f);
+          await api(`/api/runs/${d.skey}/photo`, { qid: q.id, image });
+          await reloadRun(); refreshMemory();
+        } catch (e) { msg.textContent = e.message; lbl.classList.remove('busy'); fileIn.value = ''; }
+      };
+      msw.querySelector('[data-check]').onclick = async () => {
         clearTimeout(saveT);
         try { await api(`/api/runs/${d.skey}/text`, { qid: q.id, text: ta.value }); await api(`/api/runs/${d.skey}/open`, { qid: q.id }); await reloadRun(); refreshMemory(); } catch (e) { toast(e.message); }
       };

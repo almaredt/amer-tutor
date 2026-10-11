@@ -135,6 +135,17 @@ const server = app.listen(0, async () => {
     const stale = await req('s', 'GET', '/api/runs/1-0');
     assert.equal(stale.data.started, false, 'stale Sunday (Chemistry) run is dropped for the Math plan');
 
+    // photo of handwritten working (mock Claude): transcript becomes the answer, scheme opens with suggested ticks
+    const run01 = (await req('s', 'GET', '/api/runs/0-1')).data;
+    const w1 = run01.written.find((x) => !x.points);
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    assert.equal((await req('s', 'POST', '/api/runs/0-1/photo', { qid: w1.id, image: 'data:text/plain;base64,aGk=' })).status, 400, 'non-image rejected');
+    const ph = await req('s', 'POST', '/api/runs/0-1/photo', { qid: w1.id, image: png });
+    assert.equal(ph.status, 200, JSON.stringify(ph.data));
+    const w1v = (await req('s', 'GET', '/api/runs/0-1')).data.written.find((x) => x.id === w1.id);
+    assert.ok(w1v.points && w1v.ticks[0] === true && w1v.text.includes('working from the photo') && w1v.feedback, 'photo marks the answer');
+    assert.equal((await req('s', 'POST', '/api/runs/0-1/photo', { qid: w1.id, image: png })).status, 400, 'no second photo after the scheme is open');
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');

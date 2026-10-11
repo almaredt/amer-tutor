@@ -12,6 +12,7 @@ const MODELS = {
   explain: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5',
   ask: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5',
   mark: process.env.CLAUDE_MODEL_MARK || 'claude-haiku-5-5',
+  photo: process.env.CLAUDE_MODEL_PHOTO || 'claude-sonnet-5-5', // reading handwriting needs a stronger model than Haiku
 };
 const modelFor = (kind) => MODELS[kind] || MODEL;
 const MOCK = process.env.AI_MOCK === '1';
@@ -189,6 +190,49 @@ Record the result by calling the mark_answer tool. Do not write anything else.` 
   return { awarded, feedback: String(out.feedback || '') };
 }
 
+
+// ---- 3b. Check a photo of handwritten working ----
+const PHOTO_TOOL = {
+  name: 'record_photo_check',
+  description: 'Record the transcript of the handwritten working, the mark-scheme points earned, and step-by-step feedback.',
+  input_schema: { type: 'object', properties: {
+    readable: { type: 'boolean', description: 'false if the photo is unreadable or is not working for this question.' },
+    transcript: { type: 'string', description: 'The working, line by line, as written (use Unicode for maths: x², √, ×, →).' },
+    awarded: { type: 'array', items: { type: 'boolean' }, description: 'One true/false per mark-scheme point, in order.' },
+    feedback: { type: 'string', description: 'Short feedback for the student: which line has the first mistake (quote it), what the correct step is, and one tip.' } },
+  required: ['readable', 'transcript', 'awarded', 'feedback'] },
+};
+async function markPhoto(userId, body, imageB64, mediaType) {
+  if (MOCK) { log(userId, 'photo', null); return { readable: true, transcript: '[Test] Line 1: working from the photo\nLine 2: answer', awarded: body.points.map((_, i) => i === 0), feedback: '[Test] Line 2 has the first mistake.' }; }
+  const res = await call(userId, 'photo', {
+    max_tokens: 1500,
+    tools: [PHOTO_TOOL],
+    tool_choice: { type: 'auto' },
+    messages: [{ role: 'user', content: [
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageB64 } },
+      { type: 'text', text: `The photo shows a Grade 9 IB MYP student's handwritten working for this question.
+
+Question: ${body.q}
+Mark scheme (1 mark per point):
+${body.points.map((p, j) => `${j + 1}) ${p}`).join('\n')}
+
+1. Transcribe the working line by line, exactly as written (do not fix mistakes).
+2. Check every step. Find the first line that is wrong, if any.
+3. Award a mark-scheme point only if the working clearly shows it (correct units required where the point includes them).
+4. Feedback in under 120 words, plain text: name the first wrong line and the correct step, or say the working is fully correct; end with one tip.
+If the photo is unreadable or is not working for this question, set readable to false and say what to fix (lighting, focus, whole page in view).
+Record the result by calling the record_photo_check tool. Do not write anything else.` },
+    ] }],
+  });
+  const out = structured(res) || {};
+  return {
+    readable: out.readable !== false,
+    transcript: String(out.transcript || '').slice(0, 4000),
+    awarded: body.points.map((_, i) => !!(out.awarded || [])[i]),
+    feedback: String(out.feedback || ''),
+  };
+}
+
 // ---- 4. Questions about a Learn topic ----
 async function askTopic(userId, { subject, title, context, question }) {
   if (MOCK) { log(userId, 'ask', null); return `[Test answer] About ${title}: ${question}`; }
@@ -204,4 +248,4 @@ Answer clearly and simply in under 220 words. Use a small worked example with nu
   return textOf(res);
 }
 
-module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, monthCost, MODEL, MODELS, MOCK, MONTHLY_LIMIT_USD, AIError };
+module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, markPhoto, monthCost, MODEL, MODELS, MOCK, MONTHLY_LIMIT_USD, AIError };

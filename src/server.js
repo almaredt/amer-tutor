@@ -15,10 +15,12 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   next();
 });
-app.use(express.json({ limit: '64kb' }));
+// Small JSON bodies everywhere, except photo uploads of handwritten working.
+const jsonSmall = express.json({ limit: '64kb' }), jsonPhoto = express.json({ limit: '4mb' });
+app.use((req, res, next) => (/^\/api\/runs\/[^/]+\/photo$/.test(req.path) ? jsonPhoto : jsonSmall)(req, res, next));
 app.use(auth.loadUser);
 
 // CSRF protection: every state-changing API call must carry this header (browsers won't add it cross-site).
@@ -78,6 +80,7 @@ app.post('/api/runs/:skey/text', S, (req, res) => { if (skeyOr400(req, res)) sen
 app.post('/api/runs/:skey/open', S, (req, res) => { if (skeyOr400(req, res)) send(res, tutor.openScheme(req.user.id, req.params.skey, String(req.body.qid))); });
 app.post('/api/runs/:skey/ticks', S, (req, res) => { if (skeyOr400(req, res)) send(res, tutor.setTicks(req.user.id, req.params.skey, String(req.body.qid), req.body.ticks)); });
 app.post('/api/runs/:skey/explain', S, wrap(async (req, res) => { if (skeyOr400(req, res)) send(res, await tutor.explain(req.user.id, req.params.skey, String(req.body.qid))); }));
+app.post('/api/runs/:skey/photo', S, wrap(async (req, res) => { if (skeyOr400(req, res)) send(res, await tutor.photoMark(req.user.id, req.params.skey, String(req.body.qid), req.body.image)); }));
 app.post('/api/runs/:skey/aimark', S, wrap(async (req, res) => { if (skeyOr400(req, res)) send(res, await tutor.aiMark(req.user.id, req.params.skey, String(req.body.qid))); }));
 app.post('/api/runs/:skey/done', S, (req, res) => {
   if (!skeyOr400(req, res)) return;

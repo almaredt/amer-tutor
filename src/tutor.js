@@ -225,6 +225,30 @@ async function aiMark(userId, skey, qid) {
   } catch (e) { return { error: e.message }; }
 }
 
+
+// Photo of handwritten working: Claude reads it, the transcript becomes the answer, the mark scheme opens
+// with Claude's suggested ticks, and the step-by-step feedback is kept. The photo itself is not stored.
+async function photoMark(userId, skey, qid, dataUrl) {
+  const run = getRun(userId, skey);
+  if (!inRun(run, qid, 'w')) return { error: 'That question is not in this session.' };
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
+  if (!m) return { error: 'Send a JPG, PNG or WebP photo.' };
+  if (m[2].length > 4_000_000) return { error: 'The photo is too large. Try again (it is shrunk automatically).' };
+  const q = question(qid), prev = getAns(userId, skey, qid);
+  if (prev && prev.opened) return { error: 'The mark scheme is already open for this question.' };
+  let r;
+  try { r = await ai.markPhoto(userId, q.body, m[2], m[1]); } catch (e) { return { error: e.message }; }
+  if (!r.readable || r.transcript.trim().length < 3) return { error: r.feedback || 'Claude could not read the photo. Try a clearer photo of the whole working.' };
+  const typed = prev && prev.text ? prev.text.trim() : '';
+  const text = (typed ? typed + '\n\n[From photo]\n' : '') + r.transcript;
+  upsertAnswer(userId, skey, qid, { text: text.slice(0, 5000) });
+  upsertAnswer(userId, skey, qid, { opened: 1, ticks: JSON.stringify(Array(q.body.points.length).fill(false)), correct: 0 });
+  record(userId, skey, run.date, qid, false);
+  setTicks(userId, skey, qid, r.awarded);
+  db.prepare("INSERT OR REPLACE INTO explanations (user_id, skey, qid, kind, input_hash, text) VALUES (?,?,?,'photo','',?)").run(userId, skey, qid, r.feedback);
+  return { ok: true, feedback: r.feedback };
+}
+
 // ---------- views for the client (never send answers before they are earned) ----------
 // A session whose questions are all from another subject was built from an older plan
 // (e.g. a day that changed from Chemistry to Math). Throw it away so it is built again.
@@ -252,6 +276,7 @@ function runView(userId, skey) {
   const ans = Object.fromEntries(db.prepare('SELECT * FROM answers WHERE user_id=? AND skey=?').all(userId, skey).map((a) => [a.qid, a]));
   const srsMap = Object.fromEntries(db.prepare(`SELECT qid, first_skey, learned_skey FROM srs WHERE user_id=? AND qid IN (${[...run.list.m, ...run.list.w].map(() => '?').join(',') || "''"})`).all(userId, ...run.list.m, ...run.list.w).map((r) => [r.qid, r]));
   const expl = Object.fromEntries(db.prepare("SELECT qid, text FROM explanations WHERE user_id=? AND skey=? AND kind='explain'").all(userId, skey).map((r) => [r.qid, r.text]));
+  const photoFb = Object.fromEntries(db.prepare("SELECT qid, text FROM explanations WHERE user_id=? AND skey=? AND kind='photo'").all(userId, skey).map((r) => [r.qid, r.text]));
   const tag = (q) => revSet.has(q.id) ? { kind: 'review', from: srsMap[q.id] ? skeyLabel(srsMap[q.id].first_skey) : 'earlier' } : q.source === 'ai' ? { kind: 'new' } : null;
   const mcq = run.list.m.map(question).filter(Boolean).map((q) => {
     const a = ans[q.id]; const out = { id: q.id, q: q.body.q, options: q.body.options, tag: tag(q) };
@@ -260,7 +285,7 @@ function runView(userId, skey) {
   });
   const written = run.list.w.map(question).filter(Boolean).map((q) => {
     const a = ans[q.id]; const out = { id: q.id, q: q.body.q, marks: q.body.points.length, tag: tag(q), text: a ? a.text || '' : '' };
-    if (a && a.opened) Object.assign(out, { points: q.body.points, ticks: JSON.parse(a.ticks || '[]'), ai: expl[q.id] || null });
+    if (a && a.opened) Object.assign(out, { points: q.body.points, ticks: JSON.parse(a.ticks || '[]'), ai: expl[q.id] || null, feedback: photoFb[q.id] || null });
     return out;
   });
   // A "not set up" note saved before the API key was added is stale once Claude is available.
@@ -317,4 +342,4 @@ function topicStats(userId) {
   return Object.fromEntries(rows.filter((r) => r.n >= 3).map((r) => [r.s, Math.round((r.c || 0) / r.n * 100)]));
 }
 
-module.exports = { lastTopicQuiz, topicStats, proposal, startRun, addMore, resetRun, answerMcq, saveText, openScheme, setTicks, explain, aiMark, runView, planView, memory, report, getRun, TESTS };
+module.exports = { lastTopicQuiz, topicStats, proposal, startRun, addMore, resetRun, answerMcq, saveText, openScheme, setTicks, explain, aiMark, photoMark, runView, planView, memory, report, getRun, TESTS };
