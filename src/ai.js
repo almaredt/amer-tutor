@@ -104,11 +104,12 @@ async function generateQuestions(userId, { subject, topic, nm, nw, avoid, crit }
         : { q: `[Test] ${topic}: written question ${i + 1}. Explain.`, points: ['First point', 'Second point'] })),
     };
   }
+  const MATH_STYLE = `Use the wording of the class textbook (Haese, Mathematics for the International Student 9, MYP 4): "factorise", "Null Factor law", "simplest radical form" (e.g. 2 ± √3), "axis of symmetry x = h", "vertex (h, k)", "axes intercepts", vertex form y = a(x − h)² + k, "k is the constant of proportionality" (y = kx, y = k/x). Give exact answers in simplest radical form unless the question asks you to round. Write original questions only; never reproduce textbook exercises.`;
   const prompt = `You write practice questions for a Grade 9 IB MYP student (Extended level) at an international school in Dubai.
 Subject: ${subject}
 Topic: ${topic}
 
-Write ${nm} multiple-choice questions and ${nw} written exam-style questions on exactly this topic. Mix easier questions with harder Extension ones, like a real MYP test. ${subject === 'English' ? 'This is MYP English Language and Literature. Do NOT quote To Kill a Mockingbird or any other published text; for analysis questions write your own short original extract (2-4 sentences or lines) inside the question.' : 'Use SI units and Unicode for symbols (x², H₂O, Δ, →).'}
+Write ${nm} multiple-choice questions and ${nw} written exam-style questions on exactly this topic. Mix easier questions with harder Extension ones, like a real MYP test. ${subject === 'English' ? 'This is MYP English Language and Literature. Do NOT quote To Kill a Mockingbird or any other published text; for analysis questions write your own short original extract (2-4 sentences or lines) inside the question.' : 'Use SI units and Unicode for symbols (x², H₂O, Δ, →).'}${/Math/.test(subject) ? `\n${MATH_STYLE}` : ''}
 Do not repeat any of these existing questions:
 ${avoid.slice(0, 40).map((a) => '- ' + a).join('\n')}
 

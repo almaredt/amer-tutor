@@ -265,3 +265,10 @@ html.text-large{font-size:112.5%}
 .lv-b{font-family:var(--mono);font-weight:700;color:var(--muted)}
 .lv.on .lv-b{color:var(--good)}
 .lvl-pill{font-family:var(--mono);background:var(--good-bg);color:var(--good);border-radius:6px;padding:0 6px}
+/* textbook pointers */
+.book{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:10px 0;background:var(--bg)}
+.book summary{cursor:pointer;font-weight:600}
+.book ul{margin:8px 0 4px;padding-inline-start:18px}
+.book li{margin:4px 0}
+.book .pg{color:var(--muted);white-space:nowrap}
+.book .src{font-size:.85em;margin:4px 0 0}

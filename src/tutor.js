@@ -338,7 +338,7 @@ function planView(userId) {
   const runs = Object.fromEntries(db.prepare("SELECT skey, done_at FROM runs WHERE user_id=? AND skey NOT LIKE 't-%'").all(userId).map((r) => [r.skey, r]));
   return WEEKS.map((w, wi) => ({ label: w.d, days: weekPlan(wi).map((s, di) => {
     const skey = `${wi}-${di}`;
-    return { skey, day: DAYS[di], date: sessionDate(wi, di), sub: s.sub, topic: s.topic, kind: s.kind, test: s.test || null, note: s.note || null, started: !!runs[skey], done: !!(runs[skey] && runs[skey].done_at) };
+    return { skey, day: DAYS[di], date: sessionDate(wi, di), sub: s.sub, topic: s.topic, kind: s.kind, sets: s.sets || [], test: s.test || null, note: s.note || null, started: !!runs[skey], done: !!(runs[skey] && runs[skey].done_at) };
   }) }));
 }
 

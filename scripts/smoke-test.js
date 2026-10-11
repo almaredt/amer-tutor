@@ -39,6 +39,7 @@ const server = app.listen(0, async () => {
     assert.equal((await req('s', 'GET', '/api/admin/overview')).status, 403, 'student cannot see admin');
     const plan = await req('s', 'GET', '/api/plan');
     assert.equal(plan.data.weeks.length, 9); assert.equal(plan.data.weeks[0].days.length, 7);
+    assert.deepEqual(plan.data.weeks[0].days[0].sets, ['M1'], 'plan days carry set codes (textbook links)');
 
     // Monday week 1 (Physics): proposal then start
     let v = await req('s', 'GET', '/api/runs/0-1');
@@ -126,6 +127,7 @@ const server = app.listen(0, async () => {
     const lj = await fetch(base + '/learn.js'); assert.equal(lj.status, 200);
     const mkj = await fetch(base + '/mathkeys.js'); assert.equal(mkj.status, 200, 'symbol keys script served');
     assert.ok((await (await fetch(base + '/')).text()).includes('/mathkeys.js'), 'student page loads symbol keys');
+    assert.ok((await (await fetch(base + '/learn.js')).text()).includes('const BOOK = {'), 'textbook map served');
 
     // a session built from an older plan (other subject) is rebuilt
     const uid = db.prepare("SELECT id FROM users WHERE username='amer'").get().id;

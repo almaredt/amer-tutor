@@ -389,3 +389,23 @@ TOPICS.push(
  examples:[{q:"How does \"rain hammered the windows as if trying to get in\" create tension?",steps:["Verb \"hammered\" suggests force and violence.","Personification: the rain seems to want to break in.","Effect: the setting feels threatening, mirroring the character's anxiety."]}],
  mistakes:["Saying \"it makes the reader want to read on\" without explaining why.","Confusing dialect with slang.","Analysing the whole sentence vaguely instead of zooming in on one word."]}
 );
+
+// ---- Textbook map: Haese "Mathematics for the International Student 9 (MYP 4)", 1st ed. 2008 ----
+// Page numbers are the printed book pages. Only chapter/section pointers are kept here, no book content.
+const BOOK_TITLE = "Mathematics for the International Student 9 (MYP 4), Haese";
+const BOOK = {
+  M8: { refs: [["13 D", "Formulae by induction: nth term of a pattern", "298–300"], ["22 C–D", "Growth and decay (the idea behind geometric sequences)", "440–443"]],
+        gap: "Arithmetic and geometric sequences are not covered in this book. Use this lesson and your class notes." },
+  M9: { refs: [], gap: "Series (sums of sequences) are not in this book. Use this lesson and your class notes." },
+  M1: { refs: [["13 A–B", "Substituting into and rearranging formulae (finding k)", "290–294"]],
+        gap: "The book's Variation chapter (26: direct and inverse variation) is only on its CD, not in the printed book." },
+  M2: { refs: [["6 C", "Gradient: a direct proportion graph is a straight line through the origin, gradient k", "124–127"], ["22 E", "Simple rational functions y = k/x (inverse proportion graph)", "444–446"]] },
+  M3: { refs: [["3 E–F", "Warm-up: difference of two squares and perfect square expansions", "78–81"], ["8 A–E", "Common factors, difference of two squares, perfect squares, four terms, x² + bx + c", "178–185"], ["16 A–C", "Solving: x² = k, the Null Factor law, solving by factorising", "341–345"]] },
+  M4: { refs: [["8 F–G", "Miscellaneous factorisation and ax² + bx + c with a ≠ 1", "186–190"], ["8 Review", "Review sets 8A and 8B (good self-test)", "191"]] },
+  M5: { refs: [["4 A–D", "Before you start: radicals, simplest radical form", "88–98"], ["16 D", "Completing the square", "346–348"], ["16 Inv.", "Investigation: the quadratic formula (and what b² − 4ac tells you)", "348"], ["16 Review", "Review sets 16A and 16B", "351–352"]],
+        gap: "The book only touches the discriminant inside the investigation. Use this lesson for the Δ = b² − 4ac rules." },
+  M6: { refs: [["19 A–C", "Quadratic functions, their graphs, sketching by transformations", "384–392"], ["19 D–F", "Graphing by completing the square, axes intercepts, quadratic graphs", "393–398"]],
+        gap: "Finding a quadratic from three points is not in this book. Use this lesson." },
+  M7: { refs: [["19 G", "Maximum and minimum values of quadratics", "399–400"], ["16 E", "Problem solving with quadratic equations", "349–350"], ["19 Review", "Review sets 19A and 19B", "401–402"], ["22 F", "Extension: optimisation with rational functions", "447–448"]] },
+};
+TOPICS.forEach((t) => { if (BOOK[t.id]) t.book = BOOK[t.id]; });
