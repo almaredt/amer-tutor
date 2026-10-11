@@ -247,7 +247,9 @@ function runView(userId, skey) {
     if (a && a.opened) Object.assign(out, { points: q.body.points, ticks: JSON.parse(a.ticks || '[]'), ai: expl[q.id] || null });
     return out;
   });
-  return { started: true, mcq, written, aiError: run.ai_error, done: !!run.done_at, aiAvailable: ai.available() };
+  // A "not set up" note saved before the API key was added is stale once Claude is available.
+  const aiError = run.ai_error && ai.available() && run.ai_error.startsWith('Claude is not set up') ? null : run.ai_error;
+  return { started: true, mcq, written, aiError, done: !!run.done_at, aiAvailable: ai.available() };
 }
 
 function memory(userId) {
