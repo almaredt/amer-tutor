@@ -165,8 +165,19 @@ app.post('/api/admin/flags/:id/resolve', A, (req, res) => {
 
 // ---------- pages ----------
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '1h' }));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'admin.html')));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
+// Pages link scripts/styles with ?v=<hash of their contents>, so browsers fetch new code right after an update
+// instead of using a cached copy for up to an hour.
+const PUB = path.join(__dirname, '..', 'public');
+const ASSET_V = require('crypto').createHash('sha1')
+  .update(require('fs').readdirSync(PUB).filter((f) => /\.(js|css)$/.test(f)).sort().map((f) => require('fs').readFileSync(path.join(PUB, f))).join('|'))
+  .digest('hex').slice(0, 10);
+const pageCache = {};
+function sendPage(res, file) {
+  if (!pageCache[file]) pageCache[file] = require('fs').readFileSync(path.join(PUB, file), 'utf8').replace(/(src|href)="\/([\w.-]+\.(?:js|css))"/g, `$1="/$2?v=${ASSET_V}"`);
+  res.set('Cache-Control', 'no-cache').type('html').send(pageCache[file]);
+}
+app.get('/admin', (req, res) => sendPage(res, 'admin.html'));
+app.get('/', (req, res) => sendPage(res, 'index.html'));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
 const PORT = Number(process.env.PORT || 3100);
