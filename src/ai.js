@@ -9,7 +9,7 @@ const MOCK = process.env.AI_MOCK === '1';
 const client = !MOCK && process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 // USD per million tokens [input, output]. Update if prices change: https://platform.claude.com/docs/en/about-claude/pricing
 const PRICES = { 'claude-opus-5-5': [4, 20], 'claude-sonnet-5-5': [2, 10], 'claude-haiku-5-5': [0.1, 0.5] };
-const MONTHLY_LIMIT_USD = Number(process.env.AI_MONTHLY_LIMIT_USD || 15);
+const MONTHLY_LIMIT_USD = Number(process.env.AI_MONTHLY_LIMIT_USD || 10);
 
 const available = () => MOCK || !!client;
 
