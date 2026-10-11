@@ -21,7 +21,7 @@ async function overview() {
     <header><div><h1>Students</h1><p class="sub">Tap a student to see their full report.</p></div></header>
     <div class="tiles">
       <div class="tile"><span class="label">Students</span><b>${o.students.length}</b></div>
-      <div class="tile"><span class="label">Claude this month</span><b>$${o.ai.monthCost.toFixed(2)}</b><span class="note">${o.ai.mock ? 'test mode' : o.ai.available ? `${esc(o.ai.model)} · limit $${o.ai.limit}` : 'not set up'}</span></div>
+      <div class="tile"><span class="label">Claude this month</span><b>$${o.ai.monthCost.toFixed(2)}</b><span class="note">${o.ai.mock ? 'test mode' : o.ai.available ? `questions: ${esc(o.ai.model)} · explain: ${esc((o.ai.models||{}).explain||'')} · mark: ${esc((o.ai.models||{}).mark||'')} · limit $${o.ai.limit}` : 'not set up'}</span></div>
       <div class="tile"><span class="label">Reported questions</span><b>${o.flags}</b>${o.flags ? '<button class="linkbtn" id="flagsBtn">Review</button>' : '<span class="note">none open</span>'}</div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Student</th><th class="n">Sessions done</th><th>Quiz accuracy (7 days)</th><th class="n">All-time</th><th class="n">To learn</th><th>Last active</th><th>Status</th></tr></thead>

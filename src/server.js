@@ -121,7 +121,7 @@ app.get('/api/admin/overview', A, (req, res) => {
     return { ...u, sessionsDone: done, week: { n: wk.n, right: wk.c || 0 }, all: { n: all.n, right: all.c || 0 }, memory: tutor.memory(u.id) };
   });
   const flags = db.prepare('SELECT COUNT(*) n FROM flags WHERE resolved=0').get().n;
-  res.json({ students, flags, ai: { available: ai.available(), mock: ai.MOCK, model: ai.MODEL, monthCost: ai.monthCost(), limit: ai.MONTHLY_LIMIT_USD } });
+  res.json({ students, flags, ai: { available: ai.available(), mock: ai.MOCK, model: ai.MODEL, models: ai.MODELS, monthCost: ai.monthCost(), limit: ai.MONTHLY_LIMIT_USD } });
 });
 app.post('/api/admin/students', A, (req, res) => {
   const { username, display_name, password } = req.body;
@@ -183,6 +183,6 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 const PORT = Number(process.env.PORT || 3100);
 const HOST = process.env.HOST || '127.0.0.1';
 if (require.main === module) {
-  app.listen(PORT, HOST, () => console.log(`Amer Tutor running on http://${HOST}:${PORT}  (Claude: ${ai.MOCK ? 'mock' : ai.available() ? ai.MODEL : 'not configured'})`));
+  app.listen(PORT, HOST, () => console.log(`Amer Tutor running on http://${HOST}:${PORT}  (Claude: ${ai.MOCK ? 'mock' : ai.available() ? Object.entries(ai.MODELS).map(([k, m]) => k + '=' + m).join(', ') : 'not configured'})`));
 }
 module.exports = app;

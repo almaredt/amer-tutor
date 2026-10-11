@@ -4,7 +4,16 @@
 const { Anthropic } = require('@anthropic-ai/sdk');
 const db = require('./db');
 
+// Model per job, to keep cost down: Opus writes new questions (accuracy matters most),
+// Sonnet explains and answers topic questions, Haiku suggests marks against the mark scheme.
 const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5-5';
+const MODELS = {
+  generate: MODEL,
+  explain: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5',
+  ask: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5',
+  mark: process.env.CLAUDE_MODEL_MARK || 'claude-haiku-5-5',
+};
+const modelFor = (kind) => MODELS[kind] || MODEL;
 const MOCK = process.env.AI_MOCK === '1';
 const client = !MOCK && process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 // USD per million tokens [input, output]. Update if prices change: https://platform.claude.com/docs/en/about-claude/pricing
@@ -19,9 +28,9 @@ function monthCost() {
   return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['claude-opus-5-5']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
 }
 
-function log(userId, kind, usage, ok = 1) {
+function log(userId, kind, usage, ok = 1, model = modelFor(kind)) {
   db.prepare('INSERT INTO ai_log (user_id, kind, model, input_tokens, output_tokens, ok) VALUES (?,?,?,?,?,?)')
-    .run(userId, kind, MOCK ? 'mock' : MODEL, usage?.input_tokens || 0, usage?.output_tokens || 0, ok);
+    .run(userId, kind, MOCK ? 'mock' : model, usage?.input_tokens || 0, usage?.output_tokens || 0, ok);
 }
 
 class AIError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
@@ -30,24 +39,24 @@ async function call(userId, kind, params) {
   if (!available()) throw new AIError('not_configured', 'Claude is not set up on this server.');
   if (!MOCK && monthCost() >= MONTHLY_LIMIT_USD) throw new AIError('budget', `This month's Claude budget ($${MONTHLY_LIMIT_USD}) is used up.`);
   try {
-    const res = await client.messages.create({ model: MODEL, ...params });
+    const res = await client.messages.create({ model: modelFor(kind), ...params });
     log(userId, kind, res.usage);
     return res;
   } catch (e) {
     log(userId, kind, null, 0);
     const detail = (e && e.error && e.error.error && e.error.error.message) || (e && e.message) || String(e);
     console.error(`[ai] ${kind} failed: status=${e && e.status} ${detail}`);
-    throw new AIError('api', explainApiError(e, detail));
+    throw new AIError('api', explainApiError(e, detail, modelFor(kind)));
   }
 }
 
 // Turn Anthropic API errors into a message the admin can act on.
-function explainApiError(e, detail) {
+function explainApiError(e, detail, model = MODEL) {
   const st = e && e.status, d = String(detail).toLowerCase();
   if (st === 401) return 'Claude rejected the API key. Check ANTHROPIC_API_KEY in /opt/amer-tutor/.env (no spaces, whole key), then restart.';
   if (st === 403) return 'This API key is not allowed to use Claude. Check the key\'s workspace and permissions in platform.claude.com.';
   if (d.includes('credit balance')) return 'The Claude API account has no credit left. Add credit in platform.claude.com → Billing.';
-  if (st === 404) return `The model "${MODEL}" was not found for this key. Check CLAUDE_MODEL in /opt/amer-tutor/.env.`;
+  if (st === 404) return `The model "${model}" was not found for this key. Check the CLAUDE_MODEL settings in /opt/amer-tutor/.env.`;
   if (st === 429) return 'Too many Claude requests right now (rate limit). Wait a minute and try again.';
   if (st === 529 || st >= 500) return 'Claude is busy right now. Try again in a minute.';
   if (!st) return 'The server could not reach Claude (network problem). Try again in a minute.';
@@ -195,4 +204,4 @@ Answer clearly and simply in under 220 words. Use a small worked example with nu
   return textOf(res);
 }
 
-module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, monthCost, MODEL, MOCK, MONTHLY_LIMIT_USD, AIError };
+module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, monthCost, MODEL, MODELS, MOCK, MONTHLY_LIMIT_USD, AIError };
