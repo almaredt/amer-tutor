@@ -23,9 +23,24 @@ import sys
 try:
     import paramiko
 except ImportError:
-    print("paramiko is not installed. Run this once:  pip install paramiko")
-    input("Press Enter to close...")
-    sys.exit(1)
+    # Double-click may start a different Python than the one in the terminal.
+    # Install paramiko into whichever Python is running this file.
+    import subprocess
+    print(f"paramiko is missing for this Python:\n  {sys.executable}\nInstalling it now...\n")
+    try:
+        pip = [sys.executable, "-m", "pip", "install", "paramiko"]
+        if subprocess.call(pip) != 0:
+            subprocess.check_call(pip + ["--user"])  # no write access to Python's folder
+        import site, importlib
+        site.addsitedir(site.getusersitepackages())
+        importlib.invalidate_caches()
+        import paramiko
+        print("\nparamiko installed.\n")
+    except Exception as e:
+        print(f"\nCould not install paramiko automatically ({e}).")
+        print(f'Run this once in PowerShell:\n  "{sys.executable}" -m pip install paramiko')
+        input("Press Enter to close...")
+        sys.exit(1)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KNOWN_HOSTS = os.path.join(HERE, "amer_known_hosts")
