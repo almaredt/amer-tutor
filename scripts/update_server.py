@@ -11,8 +11,10 @@ One-time setup (Windows):
 Run:
     python update_server.py
 
-The password is asked every time and never saved.
-If you have an SSH key (C:\\Users\\<you>\\.ssh\\id_ed25519 or id_rsa), it is used instead.
+Password: put it in a file named .env next to this script:
+    SSH_PASSWORD=your-root-password
+If .env has no password, it is asked each time.
+If you have an SSH key (C:\\Users\\<you>\\.ssh\\id_ed25519 or id_rsa), it is used first.
 """
 import getpass
 import os
@@ -25,15 +27,38 @@ except ImportError:
     input("Press Enter to close...")
     sys.exit(1)
 
-# ---- settings ----
-HOST = "162.35.163.244"
-PORT = 22
-USER = "root"          # change if you log in with another user
-UPDATE_CMD = "bash /opt/amer-tutor/scripts/update.sh"
-# -------------------
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 KNOWN_HOSTS = os.path.join(HERE, "amer_known_hosts")
+ENV_FILE = os.path.join(HERE, ".env")
+
+
+def load_env(path):
+    """Read KEY=VALUE lines from .env (no extra packages needed)."""
+    env = {}
+    if not os.path.exists(path):
+        return env
+    with open(path, encoding="utf-8-sig") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                v = v[1:-1]
+            env[k.strip()] = v
+    return env
+
+
+ENV = load_env(ENV_FILE)
+
+# ---- settings (can be overridden in .env) ----
+HOST = ENV.get("SSH_HOST", "162.35.163.244")
+PORT = int(ENV.get("SSH_PORT", "22"))
+USER = ENV.get("SSH_USER", "root")
+PASSWORD = ENV.get("SSH_PASSWORD", "")
+UPDATE_CMD = "bash /opt/amer-tutor/scripts/update.sh"
+# ----------------------------------------------
 
 # Windows console: print ✓ ✗ … without crashing
 try:
@@ -78,8 +103,8 @@ def connect():
         # no key, or the key was refused -> fall back to the password
         client.close()
 
-    # 2) password
-    pw = getpass.getpass(f"Password for {USER}@{HOST}: ")
+    # 2) password: from .env, otherwise ask
+    pw = PASSWORD or getpass.getpass(f"Password for {USER}@{HOST}: ")
     client = new_client()
     client.connect(HOST, PORT, USER, password=pw, timeout=15, look_for_keys=False, allow_agent=False)
     return client, pw
@@ -90,7 +115,10 @@ def main():
     try:
         client, pw = connect()
     except paramiko.AuthenticationException:
-        print("Wrong username or password.")
+        if PASSWORD:
+            print(f"Wrong password in {ENV_FILE}. Fix SSH_PASSWORD there and run again.")
+        else:
+            print("Wrong username or password.")
         return 1
     except (OSError, paramiko.SSHException) as e:
         print(f"Could not connect: {e}")
