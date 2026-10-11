@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const ai = require('./ai');
+const prefs = require('./prefs');
 const { parseSkey, subjectsOf, addDays, skeyLabel, weekPlan, sessionDate, WEEKS, DAYS, TESTS, SET_NAMES } = require('./plan');
 
 const NM = 10, NW = 5, REV_M = 3, REV_W = 1;
@@ -107,7 +108,8 @@ async function startRun(userId, skey) {
 async function fillWithAi(userId, skey, nm, nw) {
   const { session } = parseSkey(skey);
   let err = null;
-  if (!ai.available()) err = 'Claude is not set up on this server, so only question-bank questions are here.';
+  const off = prefs.aiOffReason(userId);
+  if (off) err = off + ', so only question-bank questions are here.';
   else {
     try {
       const g = await addAiQuestions(userId, session, nm, nw);
@@ -198,6 +200,7 @@ function setTicks(userId, skey, qid, ticks) {
 }
 
 async function explain(userId, skey, qid) {
+  { const off = prefs.aiOffReason(userId); if (off) return { error: off + '.' }; }
   const run = getRun(userId, skey);
   if (!run || (!run.list.m.includes(qid) && !run.list.w.includes(qid))) return { error: 'That question is not in this session.' };
   const q = question(qid), a = getAns(userId, skey, qid);
@@ -214,6 +217,7 @@ async function explain(userId, skey, qid) {
   } catch (e) { return { error: e.message }; }
 }
 async function aiMark(userId, skey, qid) {
+  { const off = prefs.aiOffReason(userId); if (off) return { error: off + '.' }; }
   const run = getRun(userId, skey);
   if (!inRun(run, qid, 'w')) return { error: 'That question is not in this session.' };
   const a = getAns(userId, skey, qid);
@@ -229,6 +233,7 @@ async function aiMark(userId, skey, qid) {
 // Photo of handwritten working: Claude reads it, the transcript becomes the answer, the mark scheme opens
 // with Claude's suggested ticks, and the step-by-step feedback is kept. The photo itself is not stored.
 async function photoMark(userId, skey, qid, dataUrl) {
+  { const off = prefs.aiOffReason(userId); if (off) return { error: off + '.' }; }
   const run = getRun(userId, skey);
   if (!inRun(run, qid, 'w')) return { error: 'That question is not in this session.' };
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
@@ -270,7 +275,7 @@ function runView(userId, skey) {
   const p = parseSkey(skey); const run = dropIfStale(userId, skey, p, getRun(userId, skey));
   if (!run) {
     const prop = proposal(userId, skey);
-    return { started: false, mix: { rev: prop.rev.m.length + prop.rev.w.length, bank: prop.bank.m.length + prop.bank.w.length, ai: prop.ai.m + prop.ai.w }, aiAvailable: ai.available(), kind: p.session.kind };
+    return { started: false, mix: { rev: prop.rev.m.length + prop.rev.w.length, bank: prop.bank.m.length + prop.bank.w.length, ai: prop.ai.m + prop.ai.w }, aiAvailable: prefs.aiOn(userId), kind: p.session.kind };
   }
   const revSet = new Set(run.rev);
   const ans = Object.fromEntries(db.prepare('SELECT * FROM answers WHERE user_id=? AND skey=?').all(userId, skey).map((a) => [a.qid, a]));
@@ -289,8 +294,8 @@ function runView(userId, skey) {
     return out;
   });
   // A "not set up" note saved before the API key was added is stale once Claude is available.
-  const aiError = run.ai_error && ai.available() && run.ai_error.startsWith('Claude is not set up') ? null : run.ai_error;
-  return { started: true, mcq, written, aiError, done: !!run.done_at, aiAvailable: ai.available() };
+  const aiError = run.ai_error && prefs.aiOn(userId) && /^Claude is (not set up|turned off)/.test(run.ai_error) ? null : run.ai_error;
+  return { started: true, mcq, written, aiError, done: !!run.done_at, aiAvailable: prefs.aiOn(userId) };
 }
 
 function memory(userId) {

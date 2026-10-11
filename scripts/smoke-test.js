@@ -170,6 +170,20 @@ const server = app.listen(0, async () => {
     assert.equal((await req('s', 'GET', '/api/push/settings')).data.enabled, false);
     assert.equal((await fetch(base + '/sw.js')).status, 200); assert.equal((await fetch(base + '/manifest.webmanifest')).status, 200);
 
+    // settings: session length, Claude switch for the student and the parent
+    let pf = await req('s', 'GET', '/api/me/prefs');
+    assert.equal(pf.data.sessionMinutes, 30); assert.equal(pf.data.aiOn, true);
+    assert.equal((await req('s', 'POST', '/api/me/prefs', { sessionMinutes: 25 })).status, 400, 'odd session length rejected');
+    pf = await req('s', 'POST', '/api/me/prefs', { sessionMinutes: 45, ai: false });
+    assert.equal(pf.data.sessionMinutes, 45); assert.equal(pf.data.aiOn, false);
+    assert.equal((await req('s', 'POST', '/api/topics/M3/ask', { question: 'Why two numbers?' })).status, 400, 'Ask Claude blocked when off');
+    assert.equal((await req('s', 'GET', '/api/runs/0-1')).data.aiAvailable, false, 'session shows Claude off');
+    await req('s', 'POST', '/api/me/prefs', { ai: true });
+    assert.equal((await req('admin', 'POST', `/api/admin/students/${uid}/ai`, { allowed: false })).status, 200);
+    pf = await req('s', 'GET', '/api/me/prefs'); assert.equal(pf.data.aiAllowed, false); assert.equal(pf.data.aiOn, false, 'parent switch wins');
+    await req('admin', 'POST', `/api/admin/students/${uid}/ai`, { allowed: true });
+    assert.equal((await req('s', 'GET', '/api/me/prefs')).data.aiOn, true);
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');

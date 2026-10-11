@@ -70,9 +70,13 @@ async function student(id) {
       ${r.sessions.map((s) => `<tr><td>${esc(s.label)}<br><span class="note">${esc(s.sub)}</span></td><td>${esc(s.topic)}</td><td class="n">${s.mcqRight}/${s.mcqAnswered}</td><td><span class="pill ${s.done ? 'ok' : 'mid'}">${s.done ? 'done' : 'started'}</span></td></tr>`).join('') || '<tr><td colspan="4" class="note">No sessions started yet.</td></tr>'}</tbody></table></div></div>
     <form class="panel" id="editForm"><h3>Account</h3>
       <div class="form-row"><label class="field"><span>New password</span><input id="np" type="text" minlength="8" placeholder="leave empty to keep"></label>
-      <button class="btn">Save password</button><button class="btn" type="button" id="toggle">Block / unblock</button></div><div class="err" id="eerr"></div></form>`;
+      <button class="btn">Save password</button><button class="btn" type="button" id="toggle">Block / unblock</button></div><div class="err" id="eerr"></div>
+      <div class="form-row"><span>Claude (AI) for this student: <b>${r.student.ai_allowed ? 'allowed' : 'blocked'}</b>${r.student.ai_allowed && r.prefs && r.prefs.ai === false ? ' (the student turned it off in Settings)' : ''}</span>
+      <button class="btn" type="button" id="aiToggle">${r.student.ai_allowed ? 'Block Claude' : 'Allow Claude'}</button></div>
+      <p class="note">Blocked: no Claude-written questions, explanations, marking or photo checks for this student (question bank only, no cost).</p></form>`;
   applyMeters(v);
   $('back').onclick = overview;
+  $('aiToggle').onclick = async () => { try { await api(`/api/admin/students/${id}/ai`, { allowed: !r.student.ai_allowed }); toast(r.student.ai_allowed ? 'Claude blocked for this student' : 'Claude allowed'); student(id); } catch (e) { $('eerr').textContent = e.message; } };
   $('editForm').onsubmit = async (e) => { e.preventDefault(); if (!$('np').value) return; try { await api(`/api/admin/students/${id}`, { password: $('np').value }, 'PATCH'); toast('Password changed; the student must log in again'); $('np').value = ''; } catch (err) { $('eerr').textContent = err.message; } };
   $('toggle').onclick = async () => {
     const o = await api('/api/admin/overview'); const s = o.students.find((x) => x.id === id);

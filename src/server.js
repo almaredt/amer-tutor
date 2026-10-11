@@ -53,6 +53,9 @@ app.post('/api/me/password', auth.requireUser, (req, res) => {
 
 // ---------- student ----------
 const S = auth.requireStudent;
+const prefs = require('./prefs');
+app.get('/api/me/prefs', S, (req, res) => res.json(prefs.get(req.user.id)));
+app.post('/api/me/prefs', S, (req, res) => send(res, prefs.set(req.user.id, req.body || {})));
 function skeyOr400(req, res) { const p = parseSkey(req.params.skey); if (!p) res.status(400).json({ error: 'Unknown session.' }); return p; }
 
 app.get('/api/plan', S, (req, res) => res.json({ weeks: tutor.planView(req.user.id), tests: TESTS, memory: tutor.memory(req.user.id) }));
@@ -110,6 +113,8 @@ app.post('/api/topics/:id/ask', S, wrap(async (req, res) => {
   if (!SET_NAMES[id]) return res.status(404).json({ error: 'Unknown topic.' });
   const question = String(req.body.question || '').trim().slice(0, 600);
   if (question.length < 3) return res.status(400).json({ error: 'Type your question first.' });
+  const off = prefs.aiOffReason(req.user.id);
+  if (off) return res.status(400).json({ error: off + '.' });
   try {
     const text = await ai.askTopic(req.user.id, { subject: SUBJ[id[0]], title: String(req.body.title || SET_NAMES[id]).slice(0, 200), context: String(req.body.context || '').slice(0, 3000), question });
     res.json({ text });
@@ -159,10 +164,11 @@ app.patch('/api/admin/students/:id', A, (req, res) => {
   res.json({ ok: true });
 });
 app.get('/api/admin/students/:id/report', A, (req, res) => {
-  const u = db.prepare("SELECT id, username, display_name, last_seen_at FROM users WHERE id=? AND role='student'").get(Number(req.params.id));
+  const u = db.prepare("SELECT id, username, display_name, last_seen_at, ai_allowed FROM users WHERE id=? AND role='student'").get(Number(req.params.id));
   if (!u) return res.status(404).json({ error: 'Student not found.' });
-  res.json({ student: u, ...tutor.report(u.id) });
+  res.json({ student: u, prefs: prefs.get(u.id), ...tutor.report(u.id) });
 });
+app.post('/api/admin/students/:id/ai', A, (req, res) => send(res, prefs.setAllowed(Number(req.params.id), !!req.body.allowed)));
 app.get('/api/admin/flags', A, (req, res) => {
   res.json(db.prepare(`SELECT f.id, f.qid, f.note, f.created_at, u.display_name who, q.body, q.type, q.source, q.status FROM flags f
     JOIN questions q ON q.id=f.qid LEFT JOIN users u ON u.id=f.user_id WHERE f.resolved=0 ORDER BY f.created_at DESC`).all().map((r) => ({ ...r, body: JSON.parse(r.body) })));

@@ -31,3 +31,13 @@ function renderLogin(root, onDone, adminPage) {
   };
 }
 async function logout() { try { await api('/api/logout', {}); } catch (e) { /* ignore */ } location.reload(); }
+
+// Theme and text size chosen in Settings (saved on this device). Runs before the page draws.
+function applyLook() {
+  let t = 'system', z = 'normal';
+  try { t = localStorage.getItem('ui-theme') || 'system'; z = localStorage.getItem('ui-size') || 'normal'; } catch (e) { /* private mode */ }
+  const r = document.documentElement;
+  if (t === 'light' || t === 'dark') r.dataset.theme = t; else delete r.dataset.theme;
+  r.classList.toggle('text-large', z === 'large');
+}
+applyLook();

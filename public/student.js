@@ -1,6 +1,6 @@
 // Student page: weekly plan, session card, questions, marking and explanations. All data lives on the server.
 const L = 'ABCD';
-const ST = { mode: 'study', quiz: null, curTopic: null, me: null, plan: null, selW: 0, selD: 0, todayW: -1, todayD: -1, run: null, busy: false, timer: null, tLeft: 1800, tKey: null };
+const ST = { mode: 'study', quiz: null, curTopic: null, me: null, plan: null, selW: 0, selD: 0, todayW: -1, todayD: -1, run: null, busy: false, timer: null, tLeft: 1800, prefs: { sessionMinutes: 30, ai: true }, tKey: null };
 
 const STEPS = {
   fix: [['5 min', 'Look back', 'Every question below is one you got wrong and haven\'t learned yet. Use "Explain this question" first.'], ['20 min', 'Try again', 'No notes. Each right answer moves it closer to "learned".'], ['5 min', 'Still wrong?', 'It stays in the memory bank and returns next session.']],
@@ -19,6 +19,8 @@ async function boot() {
   // Browser tab shows whoever is logged in, e.g. "Mahan's Study Week".
   const nm = String(ST.me.name || '').trim();
   document.title = nm ? `${nm}${/s$/i.test(nm) ? "'" : "'s"} Study Week` : 'Study Week';
+  try { ST.prefs = await api('/api/me/prefs'); } catch (e) { /* defaults */ }
+  ST.tLeft = sessSecs();
   await loadPlan(true);
 }
 
@@ -41,7 +43,17 @@ async function loadPlan(pickToday) {
 function renderShell() {
   $('root').innerHTML = `
   <div class="topbar"><div class="tabs"><button data-v="study" class="sel">Study plan</button><button data-v="learn">Learn topics</button></div>
-    <div class="who">${esc(ST.me.name)} · <button class="linkbtn" id="installBtn" hidden>Install app</button><span id="installSep" hidden> · </span><button class="linkbtn" id="remindBtn">🔔 Reminder</button> · <button class="linkbtn" id="pwBtn">Change password</button> · <button class="linkbtn" id="outBtn">Log out</button></div></div>
+    <div class="menu-wrap"><span class="who-name">${esc(ST.me.name)}</span>
+      <button class="icon-btn" id="menuBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false">${ICON.menu}</button>
+      <div class="menu" id="menu" role="menu" hidden>
+        <div class="menu-head"><b>${esc(ST.me.name)}</b><span class="note">@${esc(ST.me.username || '')}</span></div>
+        <button role="menuitem" data-act="install" id="installItem" hidden>${ICON.install}<span>Install app</span></button>
+        <button role="menuitem" data-act="remind">${ICON.bell}<span>Daily reminder</span></button>
+        <button role="menuitem" data-act="settings">${ICON.gear}<span>Settings</span></button>
+        <button role="menuitem" data-act="password">${ICON.key}<span>Change password</span></button>
+        <div class="menu-sep"></div>
+        <button role="menuitem" data-act="logout">${ICON.out}<span>Log out</span></button>
+      </div></div></div>
   <div class="remind" id="remindBox" hidden></div>
   <div id="learnView" hidden><div class="learn"><nav class="tlist" id="tlist" aria-label="Topics"></nav><div id="lessonWrap"></div></div></div>
   <div id="studyView" class="section">
@@ -56,10 +68,8 @@ function renderShell() {
       <div class="panel"><h3>Every session</h3><ul class="checks"><li>Units on every Physics &amp; Chemistry answer</li><li>Full working in Math, one step per line</li><li>Use "Explain this question" on every mistake</li></ul></div>
     </aside></div></div>`;
   document.querySelectorAll('.tabs [data-v]').forEach((b) => (b.onclick = () => setMode(b.dataset.v)));
-  $('outBtn').onclick = logout;
-  $('remindBtn').onclick = toggleReminder;
+  wireMenu();
   wireInstall();
-  $('pwBtn').onclick = changePassword;
   renderNav(); renderSide();
 }
 
@@ -107,9 +117,9 @@ function lessonPrompt(d) {
 
 async function openSession() {
   const d = day(), k = d.skey;
-  if (ST.tKey !== k) { clearInterval(ST.timer); ST.timer = null; ST.tLeft = 1800; ST.tKey = k; }
+  if (ST.tKey !== k) { clearInterval(ST.timer); ST.timer = null; ST.tLeft = sessSecs(); ST.tKey = k; }
   $('card').innerHTML = `<div class="card s-${d.sub}">
-    <div class="when"><span class="chip c-${d.sub}">${d.sub === 'Mock' ? 'Mock test' : d.sub}</span><span class="label">${d.day} ${fmtDate(d.date)} · ${KIND[d.kind]} · 30 min</span></div>
+    <div class="when"><span class="chip c-${d.sub}">${d.sub === 'Mock' ? 'Mock test' : d.sub}</span><span class="label">${d.day} ${fmtDate(d.date)} · ${KIND[d.kind]} · ${ST.prefs.sessionMinutes} min</span></div>
     <h2>${esc(d.topic)}</h2>
     ${d.test ? `<div class="alert"><strong>Test ahead:</strong> ${esc(d.test)}</div>` : ''}
     ${d.note ? `<div class="alert"><strong>Heads up:</strong> ${esc(d.note)}</div>` : ''}
@@ -173,7 +183,7 @@ function renderRun() {
   let armed = false;
   $('redo').onclick = async (e) => {
     if (!armed) { armed = true; e.target.textContent = 'Tap again to clear'; setTimeout(() => { armed = false; if (e.target.isConnected) e.target.textContent = 'Clear answers and try again'; }, 3000); return; }
-    try { ST.run = await api(`/api/runs/${d.skey}/reset`, {}); clearInterval(ST.timer); ST.timer = null; ST.tLeft = 1800; renderRun(); refreshMemory(); } catch (err) { toast(err.message); }
+    try { ST.run = await api(`/api/runs/${d.skey}/reset`, {}); clearInterval(ST.timer); ST.timer = null; ST.tLeft = sessSecs(); renderRun(); refreshMemory(); } catch (err) { toast(err.message); }
   };
 }
 
@@ -280,7 +290,7 @@ function writtenEl(q, n) {
 function wireExtras(root, q) {
   const eb = root.querySelector('[data-exp]');
   if (eb) eb.onclick = async () => {
-    if (!ST.run.aiAvailable) { toast('Claude is not set up yet. Ask AMER in the Claude app instead.'); return; }
+    if (!ST.run.aiAvailable) { toast(ST.prefs.aiConfigured === false ? 'Claude is not set up yet.' : 'Claude is off. Turn it on in Menu → Settings.'); return; }
     let box = eb.parentElement.nextElementSibling;
     if (!box || !box.classList.contains('exp')) { box = document.createElement('div'); box.className = 'exp'; eb.parentElement.after(box); }
     eb.disabled = true; box.className = 'exp wait'; box.textContent = 'Claude is thinking…';
@@ -380,7 +390,7 @@ async function openTopic(id, keepScroll) {
 }
 async function openQuiz(t, key) {
   ST.quiz = { skey: key, kind: 'practice', sub: t.subj, done: false };
-  if (ST.tKey !== key) { clearInterval(ST.timer); ST.timer = null; ST.tLeft = 1800; ST.tKey = key; }
+  if (ST.tKey !== key) { clearInterval(ST.timer); ST.timer = null; ST.tLeft = sessSecs(); ST.tKey = key; }
   const box = $('prac'); box.hidden = false; box.innerHTML = '<p class="note"><span class="spin"></span>Loading…</p>';
   try { ST.run = await api('/api/runs/' + key); } catch (e) { box.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   renderRun(); box.scrollIntoView({ block: 'start' });
@@ -404,9 +414,9 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 function wireInstall() {
-  const b = $('installBtn'); if (!b) return;
+  const b = $('installItem'); if (!b) return;
   const show = !standalone() && (installEvt || isIOS);
-  b.hidden = !show; $('installSep').hidden = !show;
+  b.hidden = !show;
   b.onclick = async () => {
     if (installEvt) { installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; wireInstall(); return; }
     const box = $('remindBox'); box.hidden = false;
@@ -417,8 +427,7 @@ function wireInstall() {
 function b64ToBytes(b64) { const p = '='.repeat((4 - (b64.length % 4)) % 4), raw = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); }
 async function toggleReminder() {
   const box = $('remindBox');
-  if (!box.hidden) { box.hidden = true; return; }
-  box.hidden = false;
+  box.hidden = false; box.scrollIntoView({ block: 'nearest' });
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   if (!supported) {
     box.innerHTML = (isIOS && !standalone()
@@ -453,4 +462,68 @@ async function toggleReminder() {
     };
   };
   draw();
+}
+
+// ---------- menu (☰) and settings ----------
+const ICON = {
+  menu: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16zM10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  key: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="8" cy="15" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  out: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  install: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+const sessSecs = () => (Number(ST.prefs && ST.prefs.sessionMinutes) || 30) * 60;
+
+function wireMenu() {
+  const btn = $('menuBtn'), menu = $('menu');
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.onclick = (e) => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (open) { const f = menu.querySelector('button:not([hidden])'); if (f) f.focus(); } };
+  document.addEventListener('click', (e) => { if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) { close(); btn.focus(); } });
+  menu.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => {
+    close();
+    const a = b.dataset.act;
+    if (a === 'remind') toggleReminder();
+    else if (a === 'settings') openSettings();
+    else if (a === 'password') { $('remindBox').hidden = true; if (ST.mode !== 'study') setMode('study'); changePassword(); }
+    else if (a === 'logout') logout();
+  }));
+}
+
+const LOCAL = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } },
+};
+function seg(name, opts, cur) {
+  return `<div class="seg" role="radiogroup" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(cur)}" data-v="${v}">${l}</button>`).join('')}</div>`;
+}
+async function openSettings() {
+  const box = $('remindBox'); box.hidden = false;
+  try { ST.prefs = await api('/api/me/prefs'); } catch (e) { /* keep current */ }
+  const p = ST.prefs;
+  const aiNote = !p.aiConfigured ? 'Claude is not set up on the server yet.' : !p.aiAllowed ? 'Turned off for this account by your parent.' : p.ai ? 'New questions written for you, explanations, marking and photo checks.' : 'Off: question bank only. Explanations, marking and photo checks are hidden.';
+  box.innerHTML = `<div class="set-head"><b>Settings</b><button class="linkbtn" id="setClose">Close</button></div>
+    <div class="set-row"><div><b>Claude (AI)</b><p class="note">${aiNote}</p></div>
+      <label class="switch"><input type="checkbox" id="setAi" ${p.aiOn ? 'checked' : ''} ${p.aiConfigured && p.aiAllowed ? '' : 'disabled'}><span></span></label></div>
+    <div class="set-row"><div><b>Session length</b><p class="note">Used for the session timer.</p></div>${seg('min', [[20, '20'], [30, '30'], [45, '45'], [60, '60 min']], p.sessionMinutes)}</div>
+    <div class="set-row"><div><b>Theme</b></div>${seg('theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']], LOCAL.get('ui-theme', 'system'))}</div>
+    <div class="set-row"><div><b>Text size</b></div>${seg('size', [['normal', 'Normal'], ['large', 'Large']], LOCAL.get('ui-size', 'normal'))}</div>
+    <div class="set-row"><div><b>Symbol shortcuts</b><p class="note">x^2 → x², sqrt → √, H2O → H₂O while typing.</p></div>
+      <label class="switch"><input type="checkbox" id="setMk" ${LOCAL.get('mathkeys-auto', '1') !== '0' ? 'checked' : ''}><span></span></label></div>
+    <p class="note">Theme, text size and shortcuts are saved on this device; Claude and session length are saved to your account.</p>`;
+  $('setClose').onclick = () => { box.hidden = true; };
+  const savePrefs = async (body) => {
+    try { ST.prefs = await api('/api/me/prefs', body); toast('Saved'); if (ST.run && ST.mode === 'study') reloadRun().catch(() => {}); }
+    catch (e) { toast(e.message); }
+  };
+  $('setAi').onchange = async (e) => { await savePrefs({ ai: e.target.checked }); openSettings(); };
+  $('setMk').onchange = (e) => { LOCAL.set('mathkeys-auto', e.target.checked ? '1' : '0'); document.querySelectorAll('.mkauto input').forEach((c) => { c.checked = e.target.checked; }); toast('Saved'); };
+  box.querySelectorAll('[data-seg]').forEach((g) => g.querySelectorAll('button').forEach((b) => b.onclick = async () => {
+    g.querySelectorAll('button').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    const v = b.dataset.v, k = g.dataset.seg;
+    if (k === 'min') { await savePrefs({ sessionMinutes: Number(v) }); if (!ST.timer) { ST.tLeft = sessSecs(); if (ST.mode === 'study') openSession().catch(() => {}); } }
+    if (k === 'theme') { LOCAL.set('ui-theme', v); applyLook(); toast('Saved'); }
+    if (k === 'size') { LOCAL.set('ui-size', v); applyLook(); toast('Saved'); }
+  }));
 }
