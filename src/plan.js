@@ -5,7 +5,7 @@
 const TERM_START = '2026-10-11';
 
 const WEEKS = [
-  { d: '11–15 Oct', M: 'Direct & inverse proportion, finding the constant k', P: 'Distance vs displacement, speed vs velocity, acceleration', C: 'Isotopes, relative atomic mass, electron configuration, ions, balancing equations' },
+  { d: '11–15 Oct · holiday', M: 'Direct & inverse proportion, finding the constant k', P: 'Distance vs displacement, speed vs velocity, acceleration', C: 'Isotopes, relative atomic mass, electron configuration, ions, balancing equations' },
   { d: '18–22 Oct', M: 'Proportion graphs and tables of values', P: 'Distance-time and velocity-time graphs: gradient and area', C: 'How ions form, ionic bonding (dot & cross)' },
   { d: '25–29 Oct', M: 'Factorising (a = 1) and difference of two squares', P: 'Thinking distance and braking distance', C: 'Covalent bonding in simple molecules + solubility practical' },
   { d: '1–5 Nov', M: 'Factorising when a ≠ 1', P: "Forces as vectors, free body diagrams, Newton's three laws", C: 'Giant ionic and giant covalent structures, diamond and graphite' },
@@ -17,7 +17,7 @@ const WEEKS = [
 ];
 
 const TESTS = [
-  ['2026-10-12', 'Chemistry Unit 2 summative (Atoms, Elements & Compounds)'],
+  ['2026-10-12', 'Chemistry Unit 2 summative (Atoms, Elements & Compounds) (date to confirm: school holiday 12–16 Oct)'],
   ['2026-10-30', 'English Critical Essay: character (summative)'],
   ['2026-11-02', 'Math CFU1 · Physics stopping distance · Chem solubility practical · English Creative Essay'],
   ['2026-11-09', 'Physics road safety (formative) · English Unseen Poetry CFU'],
@@ -73,6 +73,8 @@ function weekPlan(wi) {
     { sub: 'Mistakes', topic: 'Fix the questions still being answered wrong', kind: 'fix', sets: [] },
   ];
   if (wi >= 7) { s[1].kind = 'practice'; s[2].kind = 'practice'; }
+  // School holiday Mon 12 – Fri 16 Oct: keep the sessions so Amer gets ahead of school.
+  if (wi === 0) for (let i = 1; i <= 4; i++) s[i].note = 'School holiday this week. Use it to get ahead: this topic is taught at school after the break.';
   // Sundays are always Math. Mock tests for Physics/Chemistry go on the Thursday before the Monday test.
   if (wi === 2) s[4].note = 'Stopping distance & solubility practical on Mon 2 Nov.';
   if (wi === 3) s[0] = { sub: 'Math', topic: 'Math CFU1 tomorrow: proportion and factorising', kind: 'mock', sets: ['M1', 'M2', 'M3'], test: 'Math CFU1 on Mon 2 Nov' };
