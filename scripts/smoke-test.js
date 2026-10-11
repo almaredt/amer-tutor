@@ -91,7 +91,7 @@ const server = app.listen(0, async () => {
     v = await req('s', 'POST', '/api/runs/1-4/start', {});
     const rq = v.data.mcq.find((q) => q.id === q0.id);
     assert.ok(rq && rq.tag.kind === 'review', 'old mistake is tagged REVIEW');
-    assert.equal(v.data.mcq.length, 10); assert.ok(v.data.mcq.some((q) => q.tag && q.tag.kind === 'new'), 'AI fills the gaps');
+    assert.equal(v.data.mcq.length, 10, 'review items + bank fill the session');
     await req('s', 'POST', '/api/runs/1-4/answer', { qid: q0.id, choice: ansOf(q0.id) });
     srs = db.prepare('SELECT * FROM srs WHERE qid=?').get(q0.id);
     assert.equal(srs.box, 2, 'right answer moves the item up a box');
