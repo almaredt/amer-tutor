@@ -146,6 +146,14 @@ const server = app.listen(0, async () => {
     assert.ok(w1v.points && w1v.ticks[0] === true && w1v.text.includes('working from the photo') && w1v.feedback, 'photo marks the answer');
     assert.equal((await req('s', 'POST', '/api/runs/0-1/photo', { qid: w1.id, image: png })).status, 400, 'no second photo after the scheme is open');
 
+    // weekly report: hidden without admin or token, Persian HTML for admin, JSON with sessions and times
+    assert.equal((await fetch(base + '/report/weekly')).status, 404, 'report hidden from strangers');
+    const wr = await req('admin', 'GET', '/report/weekly?format=json');
+    assert.equal(wr.status, 200);
+    assert.ok(wr.data.students[0].sessions.length >= 1 && /^\d\d:\d\d$/.test(wr.data.students[0].sessions[0].start), 'report lists sessions with times');
+    const wh = await fetch(base + '/report/weekly', { headers: { Cookie: jar.admin } });
+    assert.ok((await wh.text()).includes('گزارش هفتگی'), 'report is in Persian');
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');

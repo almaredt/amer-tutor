@@ -168,6 +168,18 @@ app.post('/api/admin/flags/:id/resolve', A, (req, res) => {
 
 // ---------- pages ----------
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '1h' }));
+// Weekly report for the parent (Persian). Admin login, or ?token=REPORT_TOKEN (used by the Friday email task).
+const weekly = require('./weekly');
+app.get('/report/weekly', (req, res) => {
+  const tok = process.env.REPORT_TOKEN || '', given = typeof req.query.token === 'string' ? req.query.token : '';
+  const tokenOk = tok.length >= 24 && given.length === tok.length && require('crypto').timingSafeEqual(Buffer.from(given), Buffer.from(tok));
+  if (!tokenOk && !(req.user && req.user.role === 'admin')) return res.status(404).send('Not found');
+  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
+  const r = weekly.build();
+  if (req.query.format === 'json') return res.json(r);
+  res.type('html').send(`<!doctype html><html lang="fa"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weekly report</title></head><body>${weekly.html(r)}</body></html>`);
+});
+
 // Pages link scripts/styles with ?v=<hash of their contents>, so browsers fetch new code right after an update
 // instead of using a cached copy for up to an hour.
 const PUB = path.join(__dirname, '..', 'public');

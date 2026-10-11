@@ -18,7 +18,7 @@ async function overview() {
   const v = $('view'); v.innerHTML = '<p class="note"><span class="spin"></span>Loading…</p>';
   let o; try { o = await api('/api/admin/overview'); } catch (e) { v.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   v.innerHTML = `
-    <header><div><h1>Students</h1><p class="sub">Tap a student to see their full report.</p></div></header>
+    <header><div><h1>Students</h1><p class="sub">Tap a student to see their full report. <a href="/report/weekly" target="_blank" rel="noopener">Weekly report (Persian)</a></p></div></header>
     <div class="tiles">
       <div class="tile"><span class="label">Students</span><b>${o.students.length}</b></div>
       <div class="tile"><span class="label">Claude this month</span><b>$${o.ai.monthCost.toFixed(2)}</b><span class="note">${o.ai.mock ? 'test mode' : o.ai.available ? `questions: ${esc(o.ai.model)} · explain: ${esc((o.ai.models||{}).explain||'')} · mark: ${esc((o.ai.models||{}).mark||'')} · limit $${o.ai.limit}` : 'not set up'}</span></div>
