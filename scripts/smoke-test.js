@@ -252,6 +252,23 @@ const server = app.listen(0, async () => {
     const memAfter = (await req('s', 'GET', '/api/plan')).data.memory;
     assert.equal(memAfter.Math.toLearn + memAfter.Physics.toLearn, memBefore.Math.toLearn + memBefore.Physics.toLearn, 'memory bank kept');
 
+    // ---- plans and the per-student daily Claude cap ----
+    const bill = (await req('admin', 'GET', '/api/admin/billing')).data;
+    assert.ok(bill.enabled === false && bill.plans.free.dailyUsd > 0, 'billing off by default, free cap set');
+    assert.equal((await req('admin', 'PUT', '/api/admin/billing', { plans: { free: { dailyUsd: 99 } } })).status, 400, 'cap range checked');
+    await req('admin', 'PUT', '/api/admin/billing', { plans: { free: { dailyUsd: 0 } } });
+    let pr = (await req('s', 'GET', '/api/me/prefs')).data;
+    assert.ok(pr.aiLimitReached && !pr.aiOn, 'cap reached: Claude paused');
+    const capped = await req('s', 'POST', '/api/topics/M1/ask', { question: 'What is k?' });
+    assert.ok(capped.status === 400 && /limit/.test(capped.data.error), 'Ask Claude refused with the reason');
+    // billing on + family plan uses the family cap
+    await req('admin', 'PUT', '/api/admin/billing', { enabled: true });
+    assert.equal((await req('admin', 'POST', `/api/admin/students/${uid}/plan`, { plan: 'gold' })).status, 400, 'unknown plan refused');
+    await req('admin', 'POST', `/api/admin/students/${uid}/plan`, { plan: 'family' });
+    pr = (await req('s', 'GET', '/api/me/prefs')).data;
+    assert.ok(pr.aiOn && !pr.aiLimitReached, 'family plan keeps Claude on');
+    await req('admin', 'PUT', '/api/admin/billing', { enabled: false, plans: { free: { dailyUsd: 0.6 } } });
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');

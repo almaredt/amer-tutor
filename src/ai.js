@@ -30,6 +30,13 @@ function monthCost() {
   return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['claude-opus-5-5']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
 }
 
+// What one student has spent on Claude today (UTC day), for the per-student daily cap.
+function userDayCost(userId) {
+  const rows = db.prepare(`SELECT model, SUM(input_tokens) i, SUM(output_tokens) o FROM ai_log
+    WHERE user_id = ? AND created_at >= date('now') GROUP BY model`).all(userId);
+  return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['claude-opus-5-5']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
+}
+
 function log(userId, kind, usage, ok = 1, model = modelFor(kind)) {
   db.prepare('INSERT INTO ai_log (user_id, kind, model, input_tokens, output_tokens, ok) VALUES (?,?,?,?,?,?)')
     .run(userId, kind, MOCK ? 'mock' : model, usage?.input_tokens || 0, usage?.output_tokens || 0, ok);
@@ -309,4 +316,4 @@ Answer clearly and simply in under 220 words. Use a small worked example with nu
   return textOf(res);
 }
 
-module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, markPhoto, markLevel, monthCost, MODEL, MODELS, MOCK, MONTHLY_LIMIT_USD, AIError };
+module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, markPhoto, markLevel, monthCost, userDayCost, MODEL, MODELS, MOCK, MONTHLY_LIMIT_USD, AIError };

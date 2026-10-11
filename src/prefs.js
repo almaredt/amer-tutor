@@ -15,7 +15,10 @@ function get(userId) {
   const out = { ...DEFAULTS, ...p };
   out.aiAllowed = u.ai_allowed !== 0;            // parent switch
   out.aiConfigured = ai.available();             // API key on the server
-  out.aiOn = out.aiConfigured && out.aiAllowed && out.ai !== false;
+  // Per-student daily Claude cap (src/billing.js); a cap of $0 means no Claude for this plan.
+  const limit = require('./billing').dailyLimit(userId);
+  out.aiLimitReached = limit <= 0 || ai.userDayCost(userId) >= limit;
+  out.aiOn = out.aiConfigured && out.aiAllowed && out.ai !== false && !out.aiLimitReached;
   return out;
 }
 function set(userId, body) {
@@ -40,6 +43,7 @@ function aiOffReason(userId) {
   if (!p.aiConfigured) return 'Claude is not set up on this server';
   if (!p.aiAllowed) return 'Claude is turned off for this account by the parent';
   if (p.ai === false) return 'Claude is turned off in Settings';
+  if (p.aiLimitReached) return "Today's Claude limit for this account is used up (it resets tomorrow)";
   return null;
 }
 

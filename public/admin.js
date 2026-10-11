@@ -84,6 +84,15 @@ async function overview() {
       <div class="row"><button class="btn primary s-Math">Add student</button></div>
       <div class="err" id="aerr"></div>
       <p class="note">Only a username, a display name and the study profile are stored. Share the password with the student privately.</p></form>
+    <form class="panel" id="billForm"><h3>Plans and limits</h3>
+      <div class="form-row">
+        <label class="field"><span>Parent subscriptions</span><select id="bOn"><option value="0" ${o.billing.enabled ? '' : 'selected'}>Off (everything free)</option><option value="1" ${o.billing.enabled ? 'selected' : ''}>On</option></select></label>
+        <label class="field"><span>Free: Claude per student per day (USD)</span><input id="bFree" type="number" min="0" max="20" step="0.05" value="${o.billing.plans.free.dailyUsd}"></label>
+        <label class="field"><span>Family: Claude per student per day (USD)</span><input id="bFam" type="number" min="0" max="20" step="0.05" value="${o.billing.plans.family.dailyUsd}"></label>
+        <label class="field"><span>Family price (AED / month)</span><input id="bPrice" type="number" min="0" max="2000" step="1" value="${o.billing.plans.family.priceAed}"></label>
+        <button class="btn primary s-Math">Save</button></div>
+      <div class="err" id="berr"></div>
+      <p class="note">While subscriptions are off, every student gets the Free daily cap. When a student reaches it, Claude pauses for them until the next day (question bank still works). The monthly server cap of $${o.ai.limit} still applies. Collecting payments is added when a payment provider is chosen.</p></form>
     <div class="section"><h2>Schools</h2>
       <div class="table-wrap"><table><thead><tr><th>Name</th><th>Type</th><th class="n">Students</th></tr></thead><tbody>
       ${OPTS.schools.map((x) => `<tr><td>${esc(x.name)}</td><td>${x.kind === 'family' ? 'Direct families' : 'School'}</td><td class="n">${x.students}</td></tr>`).join('')}</tbody></table></div>
@@ -92,6 +101,13 @@ async function overview() {
         <label class="field"><span>Type</span><select id="sk"><option value="school">School</option><option value="family">Group of direct families</option></select></label>
         <button class="btn primary s-Math">Add school</button></div><div class="err" id="serr"></div></form></div>`;
   const readProfile = profileForm($('aprof'), { school_id: (OPTS.schools[0] || {}).id, programme: 'MYP', grade: 9 });
+  $('billForm').onsubmit = async (e) => {
+    e.preventDefault(); $('berr').textContent = '';
+    try {
+      await api('/api/admin/billing', { enabled: $('bOn').value === '1', plans: { free: { dailyUsd: Number($('bFree').value) }, family: { dailyUsd: Number($('bFam').value), priceAed: Number($('bPrice').value) } } }, 'PUT');
+      toast('Plans saved');
+    } catch (err) { $('berr').textContent = err.message; }
+  };
   $('schForm').onsubmit = async (e) => {
     e.preventDefault(); $('serr').textContent = '';
     try { await api('/api/admin/schools', { name: $('sn').value.trim(), kind: $('sk').value }); toast('School added'); overview(); }
@@ -142,6 +158,8 @@ async function student(id) {
       <button class="btn">Save password</button><button class="btn" type="button" id="toggle">Block / unblock</button></div><div class="err" id="eerr"></div>
       <div class="form-row"><span>Claude (AI) for this student: <b>${r.student.ai_allowed ? 'allowed' : 'blocked'}</b>${r.student.ai_allowed && r.prefs && r.prefs.ai === false ? ' (the student turned it off in Settings)' : ''}</span>
       <button class="btn" type="button" id="aiToggle">${r.student.ai_allowed ? 'Block Claude' : 'Allow Claude'}</button></div>
+      <div class="form-row"><label class="field"><span>Plan</span><select id="planSel"><option value="free" ${r.student.plan !== 'family' ? 'selected' : ''}>Free</option><option value="family" ${r.student.plan === 'family' ? 'selected' : ''}>Family</option></select></label>
+      <span class="note">${r.prefs && r.prefs.aiLimitReached ? "Today's Claude cap is reached for this student." : 'Counts only when parent subscriptions are on.'}</span></div>
       <p class="note">Blocked: no Claude-written questions, explanations, marking or photo checks for this student (question bank only, no cost).</p></form>`;
   applyMeters(v);
   $('back').onclick = overview;
@@ -152,6 +170,7 @@ async function student(id) {
     if ((next.course_id || null) !== (pf.course_id || null) && !confirm('Change the study plan? The student starts the new plan from the beginning; history is kept.')) return;
     try { await api(`/api/admin/students/${id}/profile`, next, 'PUT'); toast('Profile saved'); student(id); } catch (err) { $('perr').textContent = err.message; }
   };
+  $('planSel').onchange = async () => { try { await api(`/api/admin/students/${id}/plan`, { plan: $('planSel').value }); toast('Plan saved'); } catch (e) { $('eerr').textContent = e.message; } };
   $('aiToggle').onclick = async () => { try { await api(`/api/admin/students/${id}/ai`, { allowed: !r.student.ai_allowed }); toast(r.student.ai_allowed ? 'Claude blocked for this student' : 'Claude allowed'); student(id); } catch (e) { $('eerr').textContent = e.message; } };
   $('editForm').onsubmit = async (e) => { e.preventDefault(); if (!$('np').value) return; try { await api(`/api/admin/students/${id}`, { password: $('np').value }, 'PATCH'); toast('Password changed; the student must log in again'); $('np').value = ''; } catch (err) { $('eerr').textContent = err.message; } };
   $('toggle').onclick = async () => {
