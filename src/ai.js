@@ -35,8 +35,23 @@ async function call(userId, kind, params) {
     return res;
   } catch (e) {
     log(userId, kind, null, 0);
-    throw new AIError('api', 'Claude did not answer. Try again in a moment.');
+    const detail = (e && e.error && e.error.error && e.error.error.message) || (e && e.message) || String(e);
+    console.error(`[ai] ${kind} failed: status=${e && e.status} ${detail}`);
+    throw new AIError('api', explainApiError(e, detail));
   }
+}
+
+// Turn Anthropic API errors into a message the admin can act on.
+function explainApiError(e, detail) {
+  const st = e && e.status, d = String(detail).toLowerCase();
+  if (st === 401) return 'Claude rejected the API key. Check ANTHROPIC_API_KEY in /opt/amer-tutor/.env (no spaces, whole key), then restart.';
+  if (st === 403) return 'This API key is not allowed to use Claude. Check the key\'s workspace and permissions in platform.claude.com.';
+  if (d.includes('credit balance')) return 'The Claude API account has no credit left. Add credit in platform.claude.com → Billing.';
+  if (st === 404 || (st === 400 && d.includes('model'))) return `The model "${MODEL}" was not found for this key. Check CLAUDE_MODEL in /opt/amer-tutor/.env.`;
+  if (st === 429) return 'Too many Claude requests right now (rate limit). Wait a minute and try again.';
+  if (st === 529 || st >= 500) return 'Claude is busy right now. Try again in a minute.';
+  if (!st) return 'The server could not reach Claude (network problem). Try again in a minute.';
+  return `Claude did not answer (error ${st}). Try again in a moment.`;
 }
 
 const textOf = (res) => res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
