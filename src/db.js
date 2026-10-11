@@ -3,6 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 const BANK = require('./question-bank');
+const { mix } = require('./mix');
+// More Grade 9 questions, one file per subject (src/g9-extra/*.js, same shape as question-bank.js).
+// Their ids get an "x" ("M1mx0") so adding to either file never renumbers the other.
+const EXTRA = Object.assign({}, ...require('fs').readdirSync(require('path').join(__dirname, 'g9-extra')).filter((f) => f.endsWith('.js')).map((f) => require('./g9-extra/' + f)));
 const { SUBJ } = require('./plan');
 const BANK_COURSE = require('./courses/uptown-g9-2026t1'); // the hand-written bank belongs to this course
 
@@ -166,6 +170,16 @@ function seedBank() {
         body: JSON.stringify({ q: q[0], options: q[1], answer: q[2], explanation: q[3] }) }));
       BANK[set].w.forEach((q, i) => upsert.run({ id: `${set}w${i}`, subject, set_code: set, topic: SET_NAMES[set], type: 'w',
         body: JSON.stringify({ q: q[0], points: q[1] }) }));
+    }
+    for (const set of Object.keys(EXTRA)) {
+      if (!BANK[set]) throw new Error('Grade 9 extra questions for unknown set ' + set);
+      const subject = SUBJ[set[0]];
+      (EXTRA[set].m || []).forEach((q, i) => {
+        if (!(Array.isArray(q[1]) && q[1].length === 4 && q[2] >= 0 && q[2] < 4)) throw new Error(`Bad MCQ ${set} extra #${i}`);
+        const id = `${set}mx${i}`, mx = mix(id, q[1], q[2]);
+        upsert.run({ id, subject, set_code: set, topic: SET_NAMES[set], type: 'm', body: JSON.stringify({ q: q[0], options: mx.options, answer: mx.answer, explanation: q[3] }) });
+      });
+      (EXTRA[set].w || []).forEach((q, i) => upsert.run({ id: `${set}wx${i}`, subject, set_code: set, topic: SET_NAMES[set], type: 'w', body: JSON.stringify({ q: q[0], points: q[1] }) }));
     }
   });
   tx();
