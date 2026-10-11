@@ -3,7 +3,7 @@
 // A student picks a time; at that time (Dubai) a reminder is sent unless today's session is already done.
 const webpush = require('web-push');
 const db = require('./db');
-const { WEEKS, weekPlan, sessionDate } = require('./plan');
+const courses = require('./courses');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -57,9 +57,11 @@ function settings(userId) {
 
 // Today's plan session for the reminder text, and whether it is already done.
 function todaySession(userId, date) {
-  for (let wi = 0; wi < WEEKS.length; wi++) for (let di = 0; di < 7; di++) {
-    if (sessionDate(wi, di) !== date) continue;
-    const s = weekPlan(wi)[di], skey = `${wi}-${di}`;
+  const C = courses.forUser(userId);
+  if (!C) return null;
+  for (let wi = 0; wi < C.WEEKS.length; wi++) for (let di = 0; di < 7; di++) {
+    if (C.sessionDate(wi, di) !== date) continue;
+    const s = C.weekPlan(wi)[di], skey = `${wi}-${di}`;
     const run = db.prepare('SELECT done_at FROM runs WHERE user_id=? AND skey=?').get(userId, skey);
     return { s, done: !!(run && run.done_at) };
   }

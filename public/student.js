@@ -26,6 +26,7 @@ async function boot() {
 
 async function loadPlan(pickToday) {
   ST.plan = await api('/api/plan');
+  if (!ST.plan.weeks.length) { renderShell(); return; }
   if (pickToday) {
     const today = new Date(); const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
     ST.plan.weeks.forEach((w, wi) => w.days.forEach((d, di) => { if (d.date === iso) { ST.todayW = wi; ST.todayD = di; } }));
@@ -42,7 +43,7 @@ async function loadPlan(pickToday) {
 
 function renderShell() {
   $('root').innerHTML = `
-  <div class="topbar"><div class="tabs"><button data-v="study" class="sel">Study plan</button><button data-v="learn">Learn topics</button></div>
+  <div class="topbar"><div class="tabs"><button data-v="study" class="sel">Study plan</button>${ST.me.course && ST.me.course.learn ? '<button data-v="learn">Learn topics</button>' : ''}</div>
     <div class="menu-wrap"><span class="who-name">${esc(ST.me.name)}</span>
       <button class="icon-btn" id="menuBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false">${ICON.menu}</button>
       <div class="menu" id="menu" role="menu" hidden>
@@ -70,7 +71,17 @@ function renderShell() {
   document.querySelectorAll('.tabs [data-v]').forEach((b) => (b.onclick = () => setMode(b.dataset.v)));
   wireMenu();
   wireInstall();
+  if (!ST.plan.weeks.length) { renderNoPlan(); return; }
   renderNav(); renderSide();
+}
+
+// A student whose grade has no study plan yet (new school or grade): say so plainly instead of an empty page.
+function renderNoPlan() {
+  const p = ST.me.profile || {};
+  const who = [p.programme && p.grade ? `${p.programme} · Grade ${p.grade}` : '', p.class_name, p.school].filter(Boolean).join(' · ');
+  $('studyView').innerHTML = `<div class="panel empty-plan"><h1>Your study plan is on its way</h1>
+    <p>${who ? esc(who) + '. ' : ''}A weekly plan for your grade has not been added yet. When your school or parent adds it, your daily sessions will appear here.</p>
+    <p class="note">You can already set your reminder time and preferences from the menu (☰).</p></div><section id="card" aria-live="polite"></section>`;
 }
 
 function renderNav() {
@@ -96,6 +107,7 @@ function renderNav() {
 }
 
 function renderSide() {
+  if (!$('mem')) return;
   const m = ST.plan.memory;
   $('mem').innerHTML = '<div class="label"><span>Subject</span><span>to learn · due · learned</span></div>' +
     Object.entries(m).map(([s, r]) => `<div><span>${s}</span><span><b>${r.toLearn}</b> · ${r.due} · <span class="pill ok">${r.learned}</span></span></div>`).join('');
@@ -116,6 +128,7 @@ function lessonPrompt(d) {
 }
 
 async function openSession() {
+  if (!ST.plan.weeks.length) { renderNoPlan(); return; }
   const d = day(), k = d.skey;
   if (ST.tKey !== k) { clearInterval(ST.timer); ST.timer = null; ST.tLeft = sessSecs(); ST.tKey = k; }
   $('card').innerHTML = `<div class="card s-${d.sub}">

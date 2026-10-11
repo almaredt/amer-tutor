@@ -4,7 +4,15 @@ const db = require('./db');
 const ai = require('./ai');
 const prefs = require('./prefs');
 const criteria = require('./criteria');
-const { parseSkey, subjectsOf, addDays, skeyLabel, weekPlan, sessionDate, WEEKS, DAYS, TESTS, SET_NAMES } = require('./plan');
+const courses = require('./courses');
+const { addDays, skeyLabel, weekOfSkey, DAYS } = require('./plan');
+
+// Every plan lookup goes through the student's course (see src/courses).
+function courseOf(userId) {
+  const c = courses.forUser(userId);
+  if (!c) throw Object.assign(new Error('No study plan is set up for this account yet.'), { status: 400 });
+  return c;
+}
 
 const NM = 10, NW = 5, REV_M = 3, REV_W = 1;
 // Leitner boxes: wrong → box 1 (due next day); each right answer moves up: box 2 (+3 days), box 3 (+7 days), box 4 = learned.
@@ -37,18 +45,18 @@ function record(userId, skey, date, qid, correct) {
 }
 
 // ---------- building a session ----------
-function dueItems(userId, session, skey, date, wi) {
-  const subs = subjectsOf(session);
+function dueItems(userId, session, skey, date, wi, C) {
+  const subs = C.subjectsOf(session);
   const rows = db.prepare(`SELECT s.qid, s.due, s.first_skey, q.subject, q.type FROM srs s JOIN questions q ON q.id = s.qid
     WHERE s.user_id = ? AND s.learned_skey IS NULL AND s.first_skey != ? AND q.status = 'active' ORDER BY s.due`).all(userId, skey);
-  if (session.kind === 'fix') return rows.filter((r) => (r.first_skey[0] === 't' ? wi : Number(r.first_skey.split('-')[0])) <= wi);
+  if (session.kind === 'fix') return rows.filter((r) => weekOfSkey(r.first_skey, wi) <= wi);
   return rows.filter((r) => r.due <= date && subs.includes(r.subject));
 }
-function bankPool(userId, session, type, exclude = []) {
+function bankPool(userId, session, type, exclude, C) {
   if (!session.sets.length) return [];
   const ph = session.sets.map(() => '?').join(',');
-  let ids = db.prepare(`SELECT q.id FROM questions q WHERE q.set_code IN (${ph}) AND q.type = ? AND q.source = 'bank' AND q.status = 'active' AND q.id NOT LIKE 'K%'
-    AND q.id NOT IN (SELECT qid FROM seen WHERE user_id = ?) ORDER BY q.set_code, CAST(substr(q.id, 4) AS INTEGER)`).all(...session.sets, type, userId).map((r) => r.id);
+  let ids = db.prepare(`SELECT q.id FROM questions q WHERE q.course_id = ? AND q.set_code IN (${ph}) AND q.type = ? AND q.source = 'bank' AND q.status = 'active' AND q.id NOT LIKE 'K%'
+    AND q.id NOT IN (SELECT qid FROM seen WHERE user_id = ?) ORDER BY q.set_code, CAST(substr(q.id, 4) AS INTEGER)`).all(C.id, ...session.sets, type, userId).map((r) => r.id);
   ids = ids.filter((id) => !exclude.includes(id));
   if (session.kind === 'practice' || session.kind === 'mock') ids.reverse();
   if (session.sets.length > 1) ids = shuffle(ids, session.sets.join('').length * 7 + userId);
@@ -61,27 +69,28 @@ function shuffle(a, seed) {
   return b;
 }
 function proposal(userId, skey) {
-  const p = parseSkey(skey); const { session, date, w } = p;
-  const due = dueItems(userId, session, skey, date, w);
+  const C = courseOf(userId);
+  const p = C.parseSkey(skey); const { session, date, w } = p;
+  const due = dueItems(userId, session, skey, date, w, C);
   const dueM = due.filter((r) => r.type === 'm').map((r) => r.qid), dueW = due.filter((r) => r.type === 'w').map((r) => r.qid);
   if (session.kind === 'fix') return { rev: { m: dueM.slice(0, 15), w: dueW.slice(0, 6) }, bank: { m: [], w: [] }, ai: { m: 0, w: 0 } };
   const rm = dueM.slice(0, REV_M), rw = dueW.slice(0, REV_W);
-  const bm = bankPool(userId, session, 'm').slice(0, NM - rm.length), bw = bankPool(userId, session, 'w').slice(0, NW - rw.length);
+  const bm = bankPool(userId, session, 'm', [], C).slice(0, NM - rm.length), bw = bankPool(userId, session, 'w', [], C).slice(0, NW - rw.length);
   return { rev: { m: rm, w: rw }, bank: { m: bm, w: bw }, ai: { m: NM - rm.length - bm.length, w: NW - rw.length - bw.length } };
 }
 
-async function addAiQuestions(userId, session, nm, nw, crit) {
-  const subject = subjectsOf(session).join(' and ');
-  const avoid = db.prepare(`SELECT body FROM questions WHERE (set_code IN (${session.sets.map(() => '?').join(',') || "''"}) OR topic = ?) AND type='m' LIMIT 60`)
-    .all(...session.sets, session.topic).map((r) => JSON.parse(r.body).q);
+async function addAiQuestions(userId, session, nm, nw, crit, C) {
+  const subject = C.subjectsOf(session).join(' and ');
+  const avoid = db.prepare(`SELECT body FROM questions WHERE course_id = ? AND (set_code IN (${session.sets.map(() => '?').join(',') || "''"}) OR topic = ?) AND type='m' LIMIT 60`)
+    .all(C.id, ...session.sets, session.topic).map((r) => JSON.parse(r.body).q);
   const g = await ai.generateQuestions(userId, { subject, topic: session.topic, nm, nw, avoid, crit });
-  const ins = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, created_for) VALUES (?,?,?,?,?,?,'ai',?)`);
-  const mainSubject = subjectsOf(session)[0];
+  const ins = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, created_for, course_id) VALUES (?,?,?,?,?,?,'ai',?,?)`);
+  const mainSubject = C.subjectsOf(session)[0];
   const out = { m: [], w: [] };
   const mkId = () => 'G' + crypto.randomBytes(6).toString('hex');
   db.transaction(() => {
-    g.mcq.forEach((q) => { const id = mkId(); ins.run(id, mainSubject, session.sets[0] || null, session.topic, 'm', JSON.stringify({ q: q.q, options: q.options.map(String), answer: q.answer, explanation: String(q.explanation || '') }), userId); out.m.push(id); });
-    g.written.forEach((q) => { const id = mkId(); const body = { q: q.q, points: q.points.map(String).slice(0, 5) }; if (q.criterion) Object.assign(body, { criterion: q.criterion, command: q.command, levels: q.levels }); ins.run(id, mainSubject, session.sets[0] || null, session.topic, 'w', JSON.stringify(body), userId); out.w.push(id); });
+    g.mcq.forEach((q) => { const id = mkId(); ins.run(id, mainSubject, session.sets[0] || null, session.topic, 'm', JSON.stringify({ q: q.q, options: q.options.map(String), answer: q.answer, explanation: String(q.explanation || '') }), userId, C.id); out.m.push(id); });
+    g.written.forEach((q) => { const id = mkId(); const body = { q: q.q, points: q.points.map(String).slice(0, 5) }; if (q.criterion) Object.assign(body, { criterion: q.criterion, command: q.command, levels: q.levels }); ins.run(id, mainSubject, session.sets[0] || null, session.topic, 'w', JSON.stringify(body), userId, C.id); out.w.push(id); });
   })();
   return out;
 }
@@ -92,16 +101,17 @@ const getRun = (userId, skey) => {
 };
 
 async function startRun(userId, skey) {
-  const p = parseSkey(skey);
+  const C = courseOf(userId);
+  const p = C.parseSkey(skey);
   if (getRun(userId, skey)) return;
   const prop = proposal(userId, skey);
   // One MYP criterion task per session (A → B → C → D through the plan): written by Claude when on, else from the bank.
-  const subs = subjectsOf(p.session), c = p.session.kind === 'fix' ? null : criteria.criterionFor(skey);
+  const subs = C.subjectsOf(p.session), c = p.session.kind === 'fix' ? null : criteria.criterionFor(skey);
   const crit = c ? { criterion: c, name: criteria.nameOf(subs[0], c) } : null;
   let critBank = null;
   if (crit && prefs.aiOn(userId)) { if (prop.ai.w === 0 && prop.bank.w.length) { prop.bank.w.pop(); prop.ai.w = 1; } }
   else if (crit) {
-    critBank = criteria.bankTask(userId, subs, p.session.sets, c);
+    critBank = criteria.bankTask(userId, subs, p.session.sets, c, [], C.id);
     if (critBank) { if (prop.rev.w.length + prop.bank.w.length >= NW && prop.bank.w.length) prop.bank.w.pop(); prop.bank.w.push(critBank); }
   }
   const list = { m: [...prop.rev.m, ...prop.bank.m], w: [...prop.rev.w, ...prop.bank.w] };
@@ -117,20 +127,21 @@ async function startRun(userId, skey) {
   if (crit) {
     const run = getRun(userId, skey);
     if (!run.list.w.some((id) => { const q = question(id); return q && q.body.criterion; })) {
-      const id = criteria.bankTask(userId, subs, p.session.sets, c);
+      const id = criteria.bankTask(userId, subs, p.session.sets, c, [], C.id);
       if (id) { run.list.w.push(id); db.prepare('UPDATE runs SET list=? WHERE user_id=? AND skey=?').run(JSON.stringify(run.list), userId, skey); db.prepare('INSERT OR IGNORE INTO seen (user_id, qid, skey) VALUES (?,?,?)').run(userId, id, skey); }
     }
   }
 }
 
 async function fillWithAi(userId, skey, nm, nw, crit) {
-  const { session } = parseSkey(skey);
+  const C = courseOf(userId);
+  const { session } = C.parseSkey(skey);
   let err = null;
   const off = prefs.aiOffReason(userId);
   if (off) err = off + ', so only question-bank questions are here.';
   else {
     try {
-      const g = await addAiQuestions(userId, session, nm, nw, crit);
+      const g = await addAiQuestions(userId, session, nm, nw, crit, C);
       const run = getRun(userId, skey);
       run.list.m.push(...g.m); run.list.w.push(...g.w);
       db.prepare('UPDATE runs SET list=? WHERE user_id=? AND skey=?').run(JSON.stringify(run.list), userId, skey);
@@ -140,11 +151,12 @@ async function fillWithAi(userId, skey, nm, nw, crit) {
 }
 
 async function addMore(userId, skey) {
-  const run = getRun(userId, skey); const { session } = parseSkey(skey);
+  const C = courseOf(userId);
+  const run = getRun(userId, skey); const { session } = C.parseSkey(skey);
   if (!run || session.kind === 'fix') return;
   const short = run.list.m.length < NM || run.list.w.length < NW;
   const needM = short ? Math.max(0, NM - run.list.m.length) : 4, needW = short ? Math.max(0, NW - run.list.w.length) : 1;
-  const bm = bankPool(userId, session, 'm', run.list.m).slice(0, needM), bw = bankPool(userId, session, 'w', run.list.w).slice(0, needW);
+  const bm = bankPool(userId, session, 'm', run.list.m, C).slice(0, needM), bw = bankPool(userId, session, 'w', run.list.w, C).slice(0, needW);
   run.list.m.push(...bm); run.list.w.push(...bw);
   db.prepare('UPDATE runs SET list=? WHERE user_id=? AND skey=?').run(JSON.stringify(run.list), userId, skey);
   const s = db.prepare('INSERT OR IGNORE INTO seen (user_id, qid, skey) VALUES (?,?,?)');
@@ -283,11 +295,11 @@ async function photoMark(userId, skey, qid, dataUrl) {
 // ---------- views for the client (never send answers before they are earned) ----------
 // A session whose questions are all from another subject was built from an older plan
 // (e.g. a day that changed from Chemistry to Math). Throw it away so it is built again.
-function dropIfStale(userId, skey, p, run) {
+function dropIfStale(userId, skey, p, run, C) {
   if (!run || p.session.kind === 'fix') return run;
   const ids = [...run.list.m, ...run.list.w];
   if (!ids.length) return run;
-  const want = new Set(subjectsOf(p.session));
+  const want = new Set(C.subjectsOf(p.session));
   if (ids.some((id) => { const q = question(id); return q && want.has(q.subject); })) return run;
   resetRun(userId, skey);
   db.transaction(() => {
@@ -298,7 +310,8 @@ function dropIfStale(userId, skey, p, run) {
 }
 
 function runView(userId, skey) {
-  const p = parseSkey(skey); const run = dropIfStale(userId, skey, p, getRun(userId, skey));
+  const C = courseOf(userId);
+  const p = C.parseSkey(skey); const run = dropIfStale(userId, skey, p, getRun(userId, skey), C);
   if (!run) {
     const prop = proposal(userId, skey);
     return { started: false, mix: { rev: prop.rev.m.length + prop.rev.w.length, bank: prop.bank.m.length + prop.bank.w.length, ai: prop.ai.m + prop.ai.w }, aiAvailable: prefs.aiOn(userId), kind: p.session.kind };
@@ -329,12 +342,16 @@ function runView(userId, skey) {
 function memory(userId) {
   const today = new Date().toISOString().slice(0, 10);
   const rows = db.prepare('SELECT q.subject, s.learned_skey, s.due FROM srs s JOIN questions q ON q.id=s.qid WHERE s.user_id=?').all(userId);
-  const out = { Math: { toLearn: 0, due: 0, learned: 0 }, Physics: { toLearn: 0, due: 0, learned: 0 }, Chemistry: { toLearn: 0, due: 0, learned: 0 }, English: { toLearn: 0, due: 0, learned: 0 } };
-  rows.forEach((r) => { const o = out[r.subject]; if (!o) return; if (r.learned_skey) o.learned++; else { o.toLearn++; if (r.due <= today) o.due++; } });
+  const C = courses.forUser(userId);
+  const out = Object.fromEntries((C ? C.subjects : []).map((s) => [s, { toLearn: 0, due: 0, learned: 0 }]));
+  rows.forEach((r) => { const o = out[r.subject] || (out[r.subject] = { toLearn: 0, due: 0, learned: 0 }); if (r.learned_skey) o.learned++; else { o.toLearn++; if (r.due <= today) o.due++; } });
   return out;
 }
 
 function planView(userId) {
+  const C = courses.forUser(userId);
+  if (!C) return [];
+  const { WEEKS, weekPlan, sessionDate } = C;
   const runs = Object.fromEntries(db.prepare("SELECT skey, done_at FROM runs WHERE user_id=? AND skey NOT LIKE 't-%'").all(userId).map((r) => [r.skey, r]));
   return WEEKS.map((w, wi) => ({ label: w.d, days: weekPlan(wi).map((s, di) => {
     const skey = `${wi}-${di}`;
@@ -346,16 +363,18 @@ function planView(userId) {
 function report(userId) {
   const mcq = db.prepare(`SELECT q.subject, q.set_code, a.correct, a.updated_at FROM answers a JOIN questions q ON q.id=a.qid WHERE a.user_id=? AND a.choice IS NOT NULL`).all(userId);
   const wr = db.prepare(`SELECT q.subject, q.body, a.ticks FROM answers a JOIN questions q ON q.id=a.qid WHERE a.user_id=? AND a.opened=1`).all(userId);
+  const C = courses.forUser(userId);
   const bySubject = {};
-  for (const s of ['Math', 'Physics', 'Chemistry', 'English']) bySubject[s] = { mcq: 0, mcqRight: 0, marks: 0, marksMax: 0 };
-  mcq.forEach((r) => { const o = bySubject[r.subject]; if (o) { o.mcq++; o.mcqRight += r.correct; } });
-  wr.forEach((r) => { const o = bySubject[r.subject]; if (!o) return; const t = JSON.parse(r.ticks || '[]'); o.marks += t.filter(Boolean).length; o.marksMax += JSON.parse(r.body).points.length; });
+  const sub = (s) => bySubject[s] || (bySubject[s] = { mcq: 0, mcqRight: 0, marks: 0, marksMax: 0 });
+  (C ? C.subjects : []).forEach(sub);
+  mcq.forEach((r) => { const o = sub(r.subject); o.mcq++; o.mcqRight += r.correct; });
+  wr.forEach((r) => { const o = sub(r.subject); const t = JSON.parse(r.ticks || '[]'); o.marks += t.filter(Boolean).length; o.marksMax += JSON.parse(r.body).points.length; });
   const topics = {};
-  mcq.forEach((r) => { if (!r.set_code) return; const t = topics[r.set_code] || (topics[r.set_code] = { set: r.set_code, name: SET_NAMES[r.set_code], n: 0, right: 0 }); t.n++; t.right += r.correct; });
+  mcq.forEach((r) => { if (!r.set_code) return; const t = topics[r.set_code] || (topics[r.set_code] = { set: r.set_code, name: C ? C.SET_NAMES[r.set_code] : r.set_code, n: 0, right: 0 }); t.n++; t.right += r.correct; });
   const sessions = db.prepare('SELECT skey, date, started_at, done_at FROM runs WHERE user_id=? ORDER BY started_at DESC').all(userId).map((r) => {
     const a = db.prepare(`SELECT COUNT(*) n, SUM(correct) c FROM answers WHERE user_id=? AND skey=? AND choice IS NOT NULL`).get(userId, r.skey);
-    const p = parseSkey(r.skey);
-    return { skey: r.skey, label: skeyLabel(r.skey), sub: p.session.sub, topic: p.session.topic, started: r.started_at, done: !!r.done_at, mcqAnswered: a.n, mcqRight: a.c || 0 };
+    const p = C ? C.parseSkey(r.skey) : null; // runs from another course (after a change) have no plan entry
+    return { skey: r.skey, label: skeyLabel(r.skey), sub: p ? p.session.sub : '', topic: p ? p.session.topic : '(earlier course)', started: r.started_at, done: !!r.done_at, mcqAnswered: a.n, mcqRight: a.c || 0 };
   });
   const recentWrong = db.prepare(`SELECT a.skey, a.qid, a.choice, a.updated_at, q.subject, q.body FROM answers a JOIN questions q ON q.id=a.qid
     WHERE a.user_id=? AND a.choice IS NOT NULL AND a.correct=0 ORDER BY a.updated_at DESC LIMIT 20`).all(userId).map((r) => {
@@ -378,4 +397,4 @@ function topicStats(userId) {
   return Object.fromEntries(rows.filter((r) => r.n >= 3).map((r) => [r.s, Math.round((r.c || 0) / r.n * 100)]));
 }
 
-module.exports = { lastTopicQuiz, topicStats, proposal, startRun, addMore, resetRun, answerMcq, saveText, openScheme, setTicks, explain, aiMark, photoMark, runView, planView, memory, report, getRun, TESTS };
+module.exports = { lastTopicQuiz, topicStats, proposal, startRun, addMore, resetRun, answerMcq, saveText, openScheme, setTicks, explain, aiMark, photoMark, runView, planView, memory, report, getRun };

@@ -3,7 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 const BANK = require('./question-bank');
-const { SUBJ, SET_NAMES } = require('./plan');
+const { SUBJ } = require('./plan');
+const BANK_COURSE = require('./courses/uptown-g9-2026t1'); // the hand-written bank belongs to this course
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'tutor.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -119,11 +120,45 @@ CREATE TABLE IF NOT EXISTS ai_log (
 );
 `);
 
+// ---------- multi-school: schools, study profile on users, course on questions ----------
+db.exec(`
+CREATE TABLE IF NOT EXISTS schools (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  kind TEXT NOT NULL DEFAULT 'school' CHECK (kind IN ('school','family')),
+  settings TEXT NOT NULL DEFAULT '{}',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`);
+for (const sql of [
+  'ALTER TABLE users ADD COLUMN school_id INTEGER REFERENCES schools(id)',
+  'ALTER TABLE users ADD COLUMN programme TEXT',
+  'ALTER TABLE users ADD COLUMN grade INTEGER',
+  'ALTER TABLE users ADD COLUMN class_name TEXT',
+  "ALTER TABLE users ADD COLUMN subjects TEXT NOT NULL DEFAULT '[]'",
+  'ALTER TABLE users ADD COLUMN course_id TEXT',
+  "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'",
+  'ALTER TABLE questions ADD COLUMN course_id TEXT',
+]) { try { db.exec(sql); } catch (e) { /* column already exists */ } }
+db.exec('CREATE INDEX IF NOT EXISTS idx_questions_course ON questions(course_id, set_code, type)');
+
+// First run after the upgrade: the existing school, a "Families" group for parents who sign up directly,
+// and every existing student moved into Uptown Grade 9 MYP with the current course.
+db.prepare("INSERT OR IGNORE INTO schools (name, kind) VALUES ('Uptown International School', 'school'), ('Families', 'family')").run();
+{
+  const uptown = db.prepare("SELECT id FROM schools WHERE name='Uptown International School'").get().id;
+  const subj = JSON.stringify([{ group: 'langlit', subject: 'English' }, { group: 'sci', subject: 'Physics' }, { group: 'sci', subject: 'Chemistry' }, { group: 'math', subject: 'Mathematics', level: 'Extended' }]);
+  db.prepare(`UPDATE users SET school_id=?, programme='MYP', grade=9, subjects=?, course_id=?
+    WHERE role='student' AND school_id IS NULL`).run(uptown, subj, BANK_COURSE.id);
+}
+
 // Seed / refresh the hand-written bank (fixes in question-bank.js reach the DB on restart).
 function seedBank() {
-  const upsert = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source)
-    VALUES (@id, @subject, @set_code, @topic, @type, @body, 'bank')
+  const upsert = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, course_id)
+    VALUES (@id, @subject, @set_code, @topic, @type, @body, 'bank', '${BANK_COURSE.id}')
     ON CONFLICT(id) DO UPDATE SET body = excluded.body, topic = excluded.topic`);
+  const SET_NAMES = BANK_COURSE.setNames;
   const tx = db.transaction(() => {
     for (const set of Object.keys(BANK)) {
       const subject = SUBJ[set[0]];
@@ -134,6 +169,8 @@ function seedBank() {
     }
   });
   tx();
+  // Questions from before courses existed (bank, criterion tasks, Claude-written) all belong to the first course.
+  db.prepare('UPDATE questions SET course_id=? WHERE course_id IS NULL').run(BANK_COURSE.id);
 }
 seedBank();
 

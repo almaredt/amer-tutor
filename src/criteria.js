@@ -99,15 +99,16 @@ const BANK = [
     ['Some words changed but still informal', 'Mostly formal with limited vocabulary or variety', 'Formal, precise and varied with a reasonable explanation', 'Consistently formal, precise and varied writing with a clear, perceptive explanation of choices']],
 ];
 (function seed() {
-  const ins = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source) VALUES (?,?,?,?, 'w', ?, 'bank')
+  // These tasks are written for the Grade 9 course (its set codes and topics).
+  const ins = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, course_id) VALUES (?,?,?,?, 'w', ?, 'bank', '${require('./courses').DEFAULT_ID}')
     ON CONFLICT(id) DO UPDATE SET body = excluded.body, topic = excluded.topic, set_code = excluded.set_code`);
   db.transaction(() => BANK.forEach(([id, subject, set, criterion, command, q, points, levels]) =>
     ins.run(id, subject, set, `Criterion ${criterion}`, JSON.stringify({ q, points, criterion, command, levels })) ))();
 })();
 
 // A bank criterion task for this session (unseen first, then the session's sets, then any of the subject).
-function bankTask(userId, subjects, sets, crit, exclude = []) {
-  const rows = db.prepare(`SELECT id, subject, set_code, body FROM questions WHERE id LIKE 'K%' AND status='active'`).all()
+function bankTask(userId, subjects, sets, crit, exclude = [], courseId = null) {
+  const rows = db.prepare(`SELECT id, subject, set_code, body FROM questions WHERE id LIKE 'K%' AND status='active' AND course_id IS ?`).all(courseId)
     .map((r) => ({ ...r, b: JSON.parse(r.body) })).filter((r) => subjects.includes(r.subject) && !exclude.includes(r.id));
   const seen = new Set(db.prepare('SELECT qid FROM seen WHERE user_id=?').all(userId).map((r) => r.qid));
   const score = (r) => (r.b.criterion === crit ? 4 : 0) + (seen.has(r.id) ? 0 : 2) + (sets.includes(r.set_code) ? 1 : 0);

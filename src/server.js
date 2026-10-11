@@ -5,7 +5,9 @@ const db = require('./db');
 const auth = require('./auth');
 const tutor = require('./tutor');
 const ai = require('./ai');
-const { parseSkey, TESTS, TERM_START } = require('./plan');
+const courses = require('./courses');
+const profiles = require('./profiles');
+const { SUBJ } = require('./plan');
 
 const app = express();
 app.disable('x-powered-by');
@@ -42,7 +44,12 @@ app.post('/api/login', (req, res) => {
   res.json({ role: u.role, name: u.display_name });
 });
 app.post('/api/logout', (req, res) => { auth.destroySession(req, res); res.json({ ok: true }); });
-app.get('/api/me', auth.requireUser, (req, res) => res.json({ ...req.user, today: new Date().toISOString().slice(0, 10), termStart: TERM_START }));
+app.get('/api/me', auth.requireUser, (req, res) => {
+  const C = req.user.role === 'student' ? courses.forUser(req.user.id) : null;
+  const p = req.user.role === 'student' ? profiles.get(req.user.id) : null;
+  res.json({ ...req.user, today: new Date().toISOString().slice(0, 10), termStart: C ? C.TERM_START : null,
+    course: C ? C.summary() : null, profile: p && { school: p.school, programme: p.programme, grade: p.grade, class_name: p.class_name } });
+});
 app.post('/api/me/password', auth.requireUser, (req, res) => {
   const { current, next } = req.body;
   if (!auth.checkPassword(req.user.username, current)) return res.status(400).json({ error: 'Current password is wrong.' });
@@ -56,9 +63,17 @@ const S = auth.requireStudent;
 const prefs = require('./prefs');
 app.get('/api/me/prefs', S, (req, res) => res.json(prefs.get(req.user.id)));
 app.post('/api/me/prefs', S, (req, res) => send(res, prefs.set(req.user.id, req.body || {})));
-function skeyOr400(req, res) { const p = parseSkey(req.params.skey); if (!p) res.status(400).json({ error: 'Unknown session.' }); return p; }
+function skeyOr400(req, res) {
+  const C = courses.forUser(req.user.id);
+  const p = C ? C.parseSkey(req.params.skey) : null;
+  if (!p) res.status(400).json({ error: C ? 'Unknown session.' : 'No study plan is set up for this account yet.' });
+  return p;
+}
 
-app.get('/api/plan', S, (req, res) => res.json({ weeks: tutor.planView(req.user.id), tests: TESTS, memory: tutor.memory(req.user.id) }));
+app.get('/api/plan', S, (req, res) => {
+  const C = courses.forUser(req.user.id);
+  res.json({ weeks: tutor.planView(req.user.id), tests: C ? C.TESTS : [], memory: tutor.memory(req.user.id), course: C ? C.summary() : null });
+});
 app.get('/api/runs/:skey', S, (req, res) => { if (skeyOr400(req, res)) res.json(tutor.runView(req.user.id, req.params.skey)); });
 
 const starting = new Set();
@@ -102,15 +117,17 @@ app.post('/api/runs/:skey/done', S, (req, res) => {
 });
 app.post('/api/runs/:skey/reset', S, (req, res) => { if (skeyOr400(req, res)) { tutor.resetRun(req.user.id, req.params.skey); res.json(tutor.runView(req.user.id, req.params.skey)); } });
 // ---------- Learn topics ----------
-const { SET_NAMES, SUBJ } = require('./plan');
+// Learn topics belong to a course (course.learn); a topic id is one of the course's set codes.
+const topicOk = (req) => { const C = courses.forUser(req.user.id); return !!(C && C.learn && C.SET_NAMES[req.params.id]); };
 app.get('/api/topics/stats', S, (req, res) => res.json(tutor.topicStats(req.user.id)));
 app.get('/api/topics/:id/last', S, (req, res) => {
-  if (!SET_NAMES[req.params.id]) return res.status(404).json({ error: 'Unknown topic.' });
+  if (!topicOk(req)) return res.status(404).json({ error: 'Unknown topic.' });
   res.json({ skey: tutor.lastTopicQuiz(req.user.id, req.params.id) });
 });
 app.post('/api/topics/:id/ask', S, wrap(async (req, res) => {
   const id = req.params.id;
-  if (!SET_NAMES[id]) return res.status(404).json({ error: 'Unknown topic.' });
+  if (!topicOk(req)) return res.status(404).json({ error: 'Unknown topic.' });
+  const SET_NAMES = courses.forUser(req.user.id).SET_NAMES;
   const question = String(req.body.question || '').trim().slice(0, 600);
   if (question.length < 3) return res.status(400).json({ error: 'Type your question first.' });
   const off = prefs.aiOffReason(req.user.id);
@@ -131,7 +148,8 @@ app.post('/api/flag', auth.requireUser, (req, res) => {
 // ---------- admin ----------
 const A = auth.requireAdmin;
 app.get('/api/admin/overview', A, (req, res) => {
-  const students = db.prepare("SELECT id, username, display_name, active, created_at, last_seen_at FROM users WHERE role='student' ORDER BY display_name").all().map((u) => {
+  const students = db.prepare(`SELECT u.id, u.username, u.display_name, u.active, u.created_at, u.last_seen_at, u.programme, u.grade, u.class_name, u.course_id, s.name school
+    FROM users u LEFT JOIN schools s ON s.id = u.school_id WHERE u.role='student' ORDER BY s.name, u.grade, u.display_name`).all().map((u) => {
     const done = db.prepare('SELECT COUNT(*) n FROM runs WHERE user_id=? AND done_at IS NOT NULL').get(u.id).n;
     const wk = db.prepare("SELECT COUNT(*) n, SUM(correct) c FROM answers WHERE user_id=? AND choice IS NOT NULL AND updated_at >= datetime('now','-7 days')").get(u.id);
     const all = db.prepare('SELECT COUNT(*) n, SUM(correct) c FROM answers WHERE user_id=? AND choice IS NOT NULL').get(u.id);
@@ -140,15 +158,29 @@ app.get('/api/admin/overview', A, (req, res) => {
   const flags = db.prepare('SELECT COUNT(*) n FROM flags WHERE resolved=0').get().n;
   res.json({ students, flags, ai: { available: ai.available(), mock: ai.MOCK, model: ai.MODEL, models: ai.MODELS, monthCost: ai.monthCost(), limit: ai.MONTHLY_LIMIT_USD } });
 });
+app.get('/api/admin/options', A, (req, res) => res.json(profiles.options()));
+app.post('/api/admin/schools', A, (req, res) => send(res, profiles.createSchool(req.body.name, req.body.kind)));
 app.post('/api/admin/students', A, (req, res) => {
   const { username, display_name, password } = req.body;
   if (!auth.validUsername(username)) return res.status(400).json({ error: 'Username: 3-32 letters, numbers, dot, dash or underscore.' });
   if (!display_name || String(display_name).length > 60) return res.status(400).json({ error: 'Enter a display name (max 60 characters).' });
   if (!auth.validPassword(password)) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
-  try {
-    const r = db.prepare("INSERT INTO users (username, display_name, role, password_hash) VALUES (?,?,'student',?)").run(username, String(display_name), auth.hashPassword(password));
-    res.json({ id: r.lastInsertRowid });
-  } catch (e) { res.status(400).json({ error: 'That username is already taken.' }); }
+  if (db.prepare('SELECT 1 FROM users WHERE username=?').get(username)) return res.status(400).json({ error: 'That username is already taken.' });
+  // The study profile is checked before the account is created, so a bad grade or subject never leaves half an account.
+  const check = require('./programmes').validate(req.body.profile || {});
+  if (check.error) return res.status(400).json(check);
+  const r = db.transaction(() => {
+    const id = db.prepare("INSERT INTO users (username, display_name, role, password_hash) VALUES (?,?,'student',?)").run(username, String(display_name), auth.hashPassword(password)).lastInsertRowid;
+    const p = profiles.set(id, req.body.profile || {});
+    if (p.error) throw Object.assign(new Error(p.error), { userError: true });
+    return { id };
+  });
+  try { res.json(r()); } catch (e) { if (e.userError) return res.status(400).json({ error: e.message }); throw e; }
+});
+app.put('/api/admin/students/:id/profile', A, (req, res) => {
+  const u = db.prepare("SELECT id FROM users WHERE id=? AND role='student'").get(Number(req.params.id));
+  if (!u) return res.status(404).json({ error: 'Student not found.' });
+  send(res, profiles.set(u.id, req.body || {}));
 });
 app.patch('/api/admin/students/:id', A, (req, res) => {
   const u = db.prepare("SELECT id FROM users WHERE id=? AND role='student'").get(Number(req.params.id));
@@ -166,7 +198,7 @@ app.patch('/api/admin/students/:id', A, (req, res) => {
 app.get('/api/admin/students/:id/report', A, (req, res) => {
   const u = db.prepare("SELECT id, username, display_name, last_seen_at, ai_allowed FROM users WHERE id=? AND role='student'").get(Number(req.params.id));
   if (!u) return res.status(404).json({ error: 'Student not found.' });
-  res.json({ student: u, prefs: prefs.get(u.id), ...tutor.report(u.id) });
+  res.json({ student: u, prefs: prefs.get(u.id), profile: profiles.get(u.id), ...tutor.report(u.id) });
 });
 app.post('/api/admin/students/:id/ai', A, (req, res) => send(res, prefs.setAllowed(Number(req.params.id), !!req.body.allowed)));
 app.get('/api/admin/flags', A, (req, res) => {

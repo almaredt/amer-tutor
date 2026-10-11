@@ -30,13 +30,26 @@ const server = app.listen(0, async () => {
     // admin creates a student
     assert.equal((await req('admin', 'POST', '/api/login', { username: 'boss', password: 'adminpass1' })).status, 200);
     assert.equal((await req('admin', 'GET', '/api/plan')).status, 403, 'admin is not a student');
-    const add = await req('admin', 'POST', '/api/admin/students', { username: 'amer', display_name: 'Amer', password: 'studypass1' });
+    const opts = (await req('admin', 'GET', '/api/admin/options')).data;
+    const uptown = opts.schools.find((x) => x.name === 'Uptown International School');
+    assert.ok(uptown && opts.schools.some((x) => x.kind === 'family'), 'default school and families group exist');
+    assert.ok(opts.courses.some((c) => c.id === 'uptown-g9-2026t1') && opts.programmes.MYP.groups.length === 8, 'courses and the eight MYP groups listed');
+    const G9 = { school_id: uptown.id, programme: 'MYP', grade: 9, class_name: '9B', course_id: 'uptown-g9-2026t1',
+      subjects: [{ group: 'math', subject: 'Mathematics', level: 'Extended' }, { group: 'sci', subject: 'Physics' }, { group: 'sci', subject: 'Chemistry' }, { group: 'langlit', subject: 'English' }] };
+    // a wrong profile is refused and leaves no account behind
+    const bad = await req('admin', 'POST', '/api/admin/students', { username: 'amer', display_name: 'Amer', password: 'studypass1', profile: { ...G9, grade: 11 } });
+    assert.equal(bad.status, 400, 'MYP grade 11 refused');
+    assert.equal((await req('admin', 'POST', '/api/admin/students', { username: 'amer', display_name: 'Amer', password: 'studypass1', profile: { ...G9, subjects: [{ group: 'math', subject: 'Mathematics' }] } })).status, 400, 'math level required');
+    assert.equal((await req('admin', 'POST', '/api/admin/students', { username: 'amer', display_name: 'Amer', password: 'studypass1', profile: { ...G9, programme: 'DP', grade: 11 } })).status, 400, 'course must match programme and grade');
+    const add = await req('admin', 'POST', '/api/admin/students', { username: 'amer', display_name: 'Amer', password: 'studypass1', profile: G9 });
     assert.equal(add.status, 200, JSON.stringify(add.data));
     assert.equal((await req('admin', 'POST', '/api/admin/students', { username: 'amer', display_name: 'Amer', password: 'studypass1' })).status, 400, 'duplicate username');
 
     // student logs in, sees plan
     assert.equal((await req('s', 'POST', '/api/login', { username: 'amer', password: 'studypass1' })).status, 200);
     assert.equal((await req('s', 'GET', '/api/admin/overview')).status, 403, 'student cannot see admin');
+    const me = (await req('s', 'GET', '/api/me')).data;
+    assert.equal(me.course.id, 'uptown-g9-2026t1'); assert.equal(me.profile.grade, 9); assert.equal(me.profile.class_name, '9B');
     const plan = await req('s', 'GET', '/api/plan');
     assert.equal(plan.data.weeks.length, 9); assert.equal(plan.data.weeks[0].days.length, 7);
 
@@ -162,7 +175,7 @@ const server = app.listen(0, async () => {
     assert.equal((await req('s', 'POST', '/api/push/subscribe', { subscription: fakeSub, time: '18:30' })).status, 200);
     assert.equal((await req('s', 'GET', '/api/push/settings')).data.enabled, true);
     const pushMod = require('../src/push');
-    const d00 = require('../src/plan').sessionDate(0, 0);
+    const d00 = require('../src/courses').get('uptown-g9-2026t1').sessionDate(0, 0);
     assert.ok(pushMod.reminderPayload(uid, d00).body.includes('Math'), 'reminder names today\'s subject');
     db.prepare("INSERT OR REPLACE INTO runs (user_id, skey, date, list, done_at) VALUES (?, '0-0', ?, '{\"m\":[],\"w\":[]}', datetime('now'))").run(uid, d00);
     assert.equal(pushMod.reminderPayload(uid, d00), null, 'no reminder once the session is done');
@@ -203,6 +216,41 @@ const server = app.listen(0, async () => {
     await req('s', 'POST', '/api/me/prefs', { ai: true });
     const repA = await req('admin', 'GET', `/api/admin/students/${uid}/report`);
     assert.ok(repA.data.criteria.some((c) => c.avg === 5), 'admin report shows criterion levels');
+
+    // ---- schools, profiles and courses ----
+    const sch = await req('admin', 'POST', '/api/admin/schools', { name: 'Test Academy', kind: 'school' });
+    assert.ok(sch.data.id, 'school created');
+    assert.equal((await req('admin', 'POST', '/api/admin/schools', { name: 'test academy', kind: 'school' })).status, 400, 'duplicate school name');
+    // a Grade 7 student with no course yet: empty plan, clear message, nothing breaks
+    const g7 = await req('admin', 'POST', '/api/admin/students', { username: 'sara7', display_name: 'Sara', password: 'studypass1',
+      profile: { school_id: sch.data.id, programme: 'MYP', grade: 7, subjects: [{ group: 'langacq', subject: 'French', level: 'Phase 2' }, { group: 'design', subject: 'Design' }, { group: 'phe', subject: 'Physical and health education' }] } });
+    assert.equal(g7.status, 200, JSON.stringify(g7.data));
+    await req('g7', 'POST', '/api/login', { username: 'sara7', password: 'studypass1' });
+    const me7 = (await req('g7', 'GET', '/api/me')).data;
+    assert.equal(me7.course, null); assert.equal(me7.profile.grade, 7);
+    const plan7 = (await req('g7', 'GET', '/api/plan')).data;
+    assert.ok(plan7.weeks.length === 0 && plan7.course === null, 'no plan without a course');
+    const run7 = await req('g7', 'GET', '/api/runs/0-1');
+    assert.ok(run7.status === 400 && /No study plan/.test(run7.data.error), 'session refused with a clear reason');
+    assert.equal((await req('g7', 'GET', '/api/topics/M1/last')).status, 404, 'no Learn topics without a course');
+    assert.ok((await req('admin', 'GET', '/report/weekly?format=json')).data.students.length >= 2, 'weekly report still builds');
+    // admin edits Amer's profile: same course keeps his sessions
+    const before = (await req('admin', 'GET', `/api/admin/students/${uid}/report`)).data.sessions.length;
+    const ed = await req('admin', 'PUT', `/api/admin/students/${uid}/profile`, { ...G9, class_name: '9C' });
+    assert.equal(ed.data.class_name, '9C');
+    assert.equal((await req('admin', 'GET', `/api/admin/students/${uid}/report`)).data.sessions.length, before, 'sessions kept');
+    assert.equal((await req('s', 'GET', '/api/runs/2-1')).data.started, true, 'same course: session still there');
+    // removing the course archives sessions under "h1:" and keeps history and the memory bank
+    const memBefore = (await req('s', 'GET', '/api/plan')).data.memory;
+    await req('admin', 'PUT', `/api/admin/students/${uid}/profile`, { ...G9, course_id: null });
+    const arch = (await req('admin', 'GET', `/api/admin/students/${uid}/report`)).data;
+    assert.equal(arch.sessions.length, before, 'history kept after the course change');
+    assert.ok(arch.sessions.every((x) => /earlier course/.test(x.label)), 'old sessions labelled as earlier course');
+    await req('admin', 'PUT', `/api/admin/students/${uid}/profile`, G9);
+    const back = await req('s', 'GET', '/api/runs/2-1');
+    assert.equal(back.data.started, false, 'fresh plan after returning to a course');
+    const memAfter = (await req('s', 'GET', '/api/plan')).data.memory;
+    assert.equal(memAfter.Math.toLearn + memAfter.Physics.toLearn, memBefore.Math.toLearn + memBefore.Physics.toLearn, 'memory bank kept');
 
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));

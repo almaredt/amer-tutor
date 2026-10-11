@@ -265,3 +265,17 @@ html.text-large{font-size:112.5%}
 .lv-b{font-family:var(--mono);font-weight:700;color:var(--muted)}
 .lv.on .lv-b{color:var(--good)}
 .lvl-pill{font-family:var(--mono);background:var(--good-bg);color:var(--good);border-radius:6px;padding:0 6px}
+/* student without a study plan yet */
+.empty-plan{max-width:640px;margin:32px auto}
+.empty-plan h1{margin-top:0}
+/* admin: study profile and subject picker */
+.subj-pick{display:grid;gap:10px;margin-top:12px}
+.subj-group{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.subj-group b{font-family:var(--display);font-size:.9rem}
+.subj-list{display:flex;flex-wrap:wrap;gap:8px 16px}
+.subj{display:inline-flex;align-items:center;gap:6px}
+.subj label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.subj select{font:inherit;font-size:.85rem;padding:3px 6px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+.subj select:disabled{opacity:.4}
+.form-row>.field{min-width:0}
+.form-row .field select,.form-row .field input{width:100%;min-width:0}
