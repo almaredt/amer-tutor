@@ -47,15 +47,22 @@ function explainApiError(e, detail) {
   if (st === 401) return 'Claude rejected the API key. Check ANTHROPIC_API_KEY in /opt/amer-tutor/.env (no spaces, whole key), then restart.';
   if (st === 403) return 'This API key is not allowed to use Claude. Check the key\'s workspace and permissions in platform.claude.com.';
   if (d.includes('credit balance')) return 'The Claude API account has no credit left. Add credit in platform.claude.com → Billing.';
-  if (st === 404 || (st === 400 && d.includes('model'))) return `The model "${MODEL}" was not found for this key. Check CLAUDE_MODEL in /opt/amer-tutor/.env.`;
+  if (st === 404) return `The model "${MODEL}" was not found for this key. Check CLAUDE_MODEL in /opt/amer-tutor/.env.`;
   if (st === 429) return 'Too many Claude requests right now (rate limit). Wait a minute and try again.';
   if (st === 529 || st >= 500) return 'Claude is busy right now. Try again in a minute.';
   if (!st) return 'The server could not reach Claude (network problem). Try again in a minute.';
-  return `Claude did not answer (error ${st}). Try again in a moment.`;
+  return `Claude did not answer (error ${st}: ${String(detail).slice(0, 160)}).`;
 }
 
 const textOf = (res) => res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
 const toolInput = (res) => (res.content.find((b) => b.type === 'tool_use') || {}).input;
+// Some models don't allow forcing a tool, so the tool is offered with tool_choice "auto".
+// If Claude answers in text instead, take the JSON object out of the text.
+function structured(res) {
+  const t = toolInput(res); if (t) return t;
+  const m = textOf(res).match(/\{[\s\S]*\}/);
+  try { return m ? JSON.parse(m[0]) : {}; } catch (e) { return {}; }
+}
 
 // ---- 1. New questions ----
 const QUESTION_TOOL = {
@@ -95,14 +102,14 @@ Rules:
 - Work out every answer and every calculation twice before you save it. Accuracy matters more than variety.
 - "explanation": 1-2 sentences on why the correct answer is right, showing the calculation if there is one.
 - Each written question says what to do (calculate, explain, describe) and has 2 to 4 mark-scheme points, 1 mark each.
-Save them with the save_questions tool.`;
+Save them by calling the save_questions tool. Do not write anything else.`;
   const res = await call(userId, 'generate', {
     max_tokens: 8000,
     tools: [QUESTION_TOOL],
-    tool_choice: { type: 'tool', name: 'save_questions' },
+    tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: prompt }],
   });
-  const out = toolInput(res) || {};
+  const out = structured(res) || {};
   return {
     mcq: (out.mcq || []).filter((q) => q && typeof q.q === 'string' && Array.isArray(q.options) && q.options.length === 4 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < 4).slice(0, nm),
     written: (out.written || []).filter((q) => q && typeof q.q === 'string' && Array.isArray(q.points) && q.points.length >= 1).slice(0, nw),
@@ -156,7 +163,7 @@ async function markWritten(userId, body, text) {
   const res = await call(userId, 'mark', {
     max_tokens: 600,
     tools: [MARK_TOOL],
-    tool_choice: { type: 'tool', name: 'mark_answer' },
+    tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: `Mark this Grade 9 IB MYP student's answer fairly against the mark scheme. Award a point only if the answer clearly contains it (different wording is fine; correct units required where the point includes them).
 
 Question: ${body.q}
@@ -164,9 +171,11 @@ Mark scheme:
 ${body.points.map((p, j) => `${j + 1}) ${p}`).join('\n')}
 
 Student's answer:
-${text}` }],
+${text}
+
+Record the result by calling the mark_answer tool. Do not write anything else.` }],
   });
-  const out = toolInput(res) || {};
+  const out = structured(res) || {};
   const awarded = body.points.map((_, i) => !!(out.awarded || [])[i]);
   return { awarded, feedback: String(out.feedback || '') };
 }
