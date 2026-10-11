@@ -3,6 +3,7 @@
 const db = require('./db');
 const ai = require('./ai');
 const { parseSkey, skeyLabel, TESTS, SET_NAMES } = require('./plan');
+const { nameOf } = require('./criteria');
 
 const SUBJECTS = ['Math', 'Physics', 'Chemistry', 'English'];
 const FA_SUB = { Math: 'ریاضی', Physics: 'فیزیک', Chemistry: 'شیمی', English: 'انگلیسی', Mock: 'آزمون آزمایشی', Mistakes: 'روز اشتباه‌ها' };
@@ -55,7 +56,11 @@ function studentWeek(u, from, to) {
     .filter((t) => t.p < 100).sort((a, b) => a.p - b.p || b.n - a.n).slice(0, 3);
   const today = dubaiDate(to);
   const mem = db.prepare(`SELECT COUNT(*) n, SUM(CASE WHEN due <= ? THEN 1 ELSE 0 END) d FROM srs WHERE user_id=? AND learned_skey IS NULL`).get(today, u.id);
-  return { name: u.display_name, sessions, subjects, weak, memory: { toLearn: mem.n || 0, due: mem.d || 0 } };
+  // MYP criterion levels (Claude estimates, last 4 weeks)
+  const crit = db.prepare(`SELECT q.subject sub, json_extract(q.body, '$.criterion') c, AVG(a.level) avg, COUNT(*) n FROM answers a JOIN questions q ON q.id=a.qid
+      WHERE a.user_id=? AND a.level IS NOT NULL AND a.updated_at >= ? GROUP BY sub, c ORDER BY sub, c`).all(u.id, F4)
+    .map((r) => ({ sub: r.sub, crit: r.c, name: nameOf(r.sub, r.c), avg: Math.round(r.avg * 10) / 10, n: r.n }));
+  return { name: u.display_name, sessions, subjects, weak, criteria: crit, memory: { toLearn: mem.n || 0, due: mem.d || 0 } };
 }
 
 function build(now = new Date()) {
@@ -82,6 +87,8 @@ function html(r) {
     } else parts.push('<p>این هفته جلسه‌ای انجام نشده است.</p>');
     parts.push('<p><b>درصد هر درس این هفته</b> (تست / تشریحی): '
       + s.subjects.map((x) => `${FA_SUB[x.sub]}: ${fmt(x.quiz)} / ${fmt(x.written)}`).join(' · ') + '</p>');
+    if (s.criteria && s.criteria.length) parts.push('<p><b>سطح معیارهای MYP (تخمین Claude، ۴ هفته‌ی اخیر، از ۸):</b> '
+      + s.criteria.map((c) => `${FA_SUB[c.sub] || esc(c.sub)} ${c.crit} <span dir="ltr">(${esc(c.name)})</span>: ${c.avg} از ${c.n} تمرین`).join(' · ') + '</p>');
     parts.push('<p><b>سه موضوع ضعیف (۴ هفته‌ی اخیر):</b> '
       + (s.weak.length ? s.weak.map((t) => `<span dir="ltr">${esc(t.name)}</span> (${t.p}٪ از ${t.n} تست)`).join('، ') : 'هنوز داده‌ی کافی نیست.') + '</p>');
   }

@@ -254,3 +254,14 @@ ol[type="A"]{margin:0;padding-left:22px}
 .switch input:disabled+span{opacity:.5;cursor:not-allowed}
 .switch input:focus-visible+span{outline:2px solid var(--math);outline-offset:2px}
 html.text-large{font-size:112.5%}
+/* MYP criterion tasks */
+.crit{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.crit-badge{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;background:var(--mock-bg);color:var(--mock);border-radius:6px;padding:2px 8px}
+.crit-cmd{font-size:.85rem;color:var(--muted)}
+.crit-cmd b{color:var(--ink)}
+.levels{display:grid;gap:4px;margin-top:4px}
+.lv{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:start;font-size:.88rem;padding:6px 8px;border-radius:8px;background:var(--bg)}
+.lv.on{background:var(--good-bg);outline:1.5px solid var(--good)}
+.lv-b{font-family:var(--mono);font-weight:700;color:var(--muted)}
+.lv.on .lv-b{color:var(--good)}
+.lvl-pill{font-family:var(--mono);background:var(--good-bg);color:var(--good);border-radius:6px;padding:0 6px}

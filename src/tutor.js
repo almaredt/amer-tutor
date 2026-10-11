@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('./db');
 const ai = require('./ai');
 const prefs = require('./prefs');
+const criteria = require('./criteria');
 const { parseSkey, subjectsOf, addDays, skeyLabel, weekPlan, sessionDate, WEEKS, DAYS, TESTS, SET_NAMES } = require('./plan');
 
 const NM = 10, NW = 5, REV_M = 3, REV_W = 1;
@@ -46,7 +47,7 @@ function dueItems(userId, session, skey, date, wi) {
 function bankPool(userId, session, type, exclude = []) {
   if (!session.sets.length) return [];
   const ph = session.sets.map(() => '?').join(',');
-  let ids = db.prepare(`SELECT q.id FROM questions q WHERE q.set_code IN (${ph}) AND q.type = ? AND q.source = 'bank' AND q.status = 'active'
+  let ids = db.prepare(`SELECT q.id FROM questions q WHERE q.set_code IN (${ph}) AND q.type = ? AND q.source = 'bank' AND q.status = 'active' AND q.id NOT LIKE 'K%'
     AND q.id NOT IN (SELECT qid FROM seen WHERE user_id = ?) ORDER BY q.set_code, CAST(substr(q.id, 4) AS INTEGER)`).all(...session.sets, type, userId).map((r) => r.id);
   ids = ids.filter((id) => !exclude.includes(id));
   if (session.kind === 'practice' || session.kind === 'mock') ids.reverse();
@@ -69,18 +70,18 @@ function proposal(userId, skey) {
   return { rev: { m: rm, w: rw }, bank: { m: bm, w: bw }, ai: { m: NM - rm.length - bm.length, w: NW - rw.length - bw.length } };
 }
 
-async function addAiQuestions(userId, session, nm, nw) {
+async function addAiQuestions(userId, session, nm, nw, crit) {
   const subject = subjectsOf(session).join(' and ');
   const avoid = db.prepare(`SELECT body FROM questions WHERE (set_code IN (${session.sets.map(() => '?').join(',') || "''"}) OR topic = ?) AND type='m' LIMIT 60`)
     .all(...session.sets, session.topic).map((r) => JSON.parse(r.body).q);
-  const g = await ai.generateQuestions(userId, { subject, topic: session.topic, nm, nw, avoid });
+  const g = await ai.generateQuestions(userId, { subject, topic: session.topic, nm, nw, avoid, crit });
   const ins = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, created_for) VALUES (?,?,?,?,?,?,'ai',?)`);
   const mainSubject = subjectsOf(session)[0];
   const out = { m: [], w: [] };
   const mkId = () => 'G' + crypto.randomBytes(6).toString('hex');
   db.transaction(() => {
     g.mcq.forEach((q) => { const id = mkId(); ins.run(id, mainSubject, session.sets[0] || null, session.topic, 'm', JSON.stringify({ q: q.q, options: q.options.map(String), answer: q.answer, explanation: String(q.explanation || '') }), userId); out.m.push(id); });
-    g.written.forEach((q) => { const id = mkId(); ins.run(id, mainSubject, session.sets[0] || null, session.topic, 'w', JSON.stringify({ q: q.q, points: q.points.map(String).slice(0, 5) }), userId); out.w.push(id); });
+    g.written.forEach((q) => { const id = mkId(); const body = { q: q.q, points: q.points.map(String).slice(0, 5) }; if (q.criterion) Object.assign(body, { criterion: q.criterion, command: q.command, levels: q.levels }); ins.run(id, mainSubject, session.sets[0] || null, session.topic, 'w', JSON.stringify(body), userId); out.w.push(id); });
   })();
   return out;
 }
@@ -94,6 +95,15 @@ async function startRun(userId, skey) {
   const p = parseSkey(skey);
   if (getRun(userId, skey)) return;
   const prop = proposal(userId, skey);
+  // One MYP criterion task per session (A → B → C → D through the plan): written by Claude when on, else from the bank.
+  const subs = subjectsOf(p.session), c = p.session.kind === 'fix' ? null : criteria.criterionFor(skey);
+  const crit = c ? { criterion: c, name: criteria.nameOf(subs[0], c) } : null;
+  let critBank = null;
+  if (crit && prefs.aiOn(userId)) { if (prop.ai.w === 0 && prop.bank.w.length) { prop.bank.w.pop(); prop.ai.w = 1; } }
+  else if (crit) {
+    critBank = criteria.bankTask(userId, subs, p.session.sets, c);
+    if (critBank) { if (prop.rev.w.length + prop.bank.w.length >= NW && prop.bank.w.length) prop.bank.w.pop(); prop.bank.w.push(critBank); }
+  }
   const list = { m: [...prop.rev.m, ...prop.bank.m], w: [...prop.rev.w, ...prop.bank.w] };
   const rev = [...prop.rev.m, ...prop.rev.w];
   // Save the run first so a slow or failed Claude call never loses the session.
@@ -102,17 +112,25 @@ async function startRun(userId, skey) {
     const s = db.prepare('INSERT OR IGNORE INTO seen (user_id, qid, skey) VALUES (?,?,?)');
     [...prop.bank.m, ...prop.bank.w].forEach((id) => s.run(userId, id, skey));
   })();
-  if (prop.ai.m + prop.ai.w > 0) await fillWithAi(userId, skey, prop.ai.m, prop.ai.w);
+  if (prop.ai.m + prop.ai.w > 0) await fillWithAi(userId, skey, prop.ai.m, prop.ai.w, crit);
+  // If Claude did not deliver a criterion task, add one from the bank.
+  if (crit) {
+    const run = getRun(userId, skey);
+    if (!run.list.w.some((id) => { const q = question(id); return q && q.body.criterion; })) {
+      const id = criteria.bankTask(userId, subs, p.session.sets, c);
+      if (id) { run.list.w.push(id); db.prepare('UPDATE runs SET list=? WHERE user_id=? AND skey=?').run(JSON.stringify(run.list), userId, skey); db.prepare('INSERT OR IGNORE INTO seen (user_id, qid, skey) VALUES (?,?,?)').run(userId, id, skey); }
+    }
+  }
 }
 
-async function fillWithAi(userId, skey, nm, nw) {
+async function fillWithAi(userId, skey, nm, nw, crit) {
   const { session } = parseSkey(skey);
   let err = null;
   const off = prefs.aiOffReason(userId);
   if (off) err = off + ', so only question-bank questions are here.';
   else {
     try {
-      const g = await addAiQuestions(userId, session, nm, nw);
+      const g = await addAiQuestions(userId, session, nm, nw, crit);
       const run = getRun(userId, skey);
       run.list.m.push(...g.m); run.list.w.push(...g.w);
       db.prepare('UPDATE runs SET list=? WHERE user_id=? AND skey=?').run(JSON.stringify(run.list), userId, skey);
@@ -150,11 +168,11 @@ function resetRun(userId, skey) {
 function inRun(run, qid, type) { return run && run.list[type].includes(qid); }
 const getAns = (u, s, q) => db.prepare('SELECT * FROM answers WHERE user_id=? AND skey=? AND qid=?').get(u, s, q);
 function upsertAnswer(u, s, q, fields) {
-  const cur = getAns(u, s, q) || { choice: null, text: null, opened: 0, ticks: null, correct: null };
+  const cur = getAns(u, s, q) || { choice: null, text: null, opened: 0, ticks: null, correct: null, level: null };
   const n = { ...cur, ...fields };
-  db.prepare(`INSERT INTO answers (user_id, skey, qid, choice, text, opened, ticks, correct, updated_at) VALUES (?,?,?,?,?,?,?,?,datetime('now'))
-    ON CONFLICT(user_id, skey, qid) DO UPDATE SET choice=excluded.choice, text=excluded.text, opened=excluded.opened, ticks=excluded.ticks, correct=excluded.correct, updated_at=excluded.updated_at`)
-    .run(u, s, q, n.choice, n.text, n.opened, n.ticks, n.correct);
+  db.prepare(`INSERT INTO answers (user_id, skey, qid, choice, text, opened, ticks, correct, level, updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))
+    ON CONFLICT(user_id, skey, qid) DO UPDATE SET choice=excluded.choice, text=excluded.text, opened=excluded.opened, ticks=excluded.ticks, correct=excluded.correct, level=excluded.level, updated_at=excluded.updated_at`)
+    .run(u, s, q, n.choice, n.text, n.opened, n.ticks, n.correct, n.level == null ? null : n.level);
 }
 
 function answerMcq(userId, skey, qid, choice) {
@@ -223,7 +241,15 @@ async function aiMark(userId, skey, qid) {
   const a = getAns(userId, skey, qid);
   if (!a || !a.opened) return { error: 'Open the mark scheme first.' };
   try {
-    const r = await ai.markWritten(userId, question(qid).body, a.text);
+    const q = question(qid);
+    if (q.body.criterion && Array.isArray(q.body.levels)) {
+      const r = await ai.markLevel(userId, q.subject, criteria.nameOf(q.subject, q.body.criterion), q.body, a.text);
+      setTicks(userId, skey, qid, r.awarded);
+      upsertAnswer(userId, skey, qid, { level: r.level });
+      db.prepare("INSERT OR REPLACE INTO explanations (user_id, skey, qid, kind, input_hash, text) VALUES (?,?,?,'level','',?)").run(userId, skey, qid, r.feedback);
+      return { ok: true, feedback: r.feedback, level: r.level };
+    }
+    const r = await ai.markWritten(userId, q.body, a.text);
     setTicks(userId, skey, qid, r.awarded);
     return { ok: true, feedback: r.feedback };
   } catch (e) { return { error: e.message }; }
@@ -282,6 +308,7 @@ function runView(userId, skey) {
   const srsMap = Object.fromEntries(db.prepare(`SELECT qid, first_skey, learned_skey FROM srs WHERE user_id=? AND qid IN (${[...run.list.m, ...run.list.w].map(() => '?').join(',') || "''"})`).all(userId, ...run.list.m, ...run.list.w).map((r) => [r.qid, r]));
   const expl = Object.fromEntries(db.prepare("SELECT qid, text FROM explanations WHERE user_id=? AND skey=? AND kind='explain'").all(userId, skey).map((r) => [r.qid, r.text]));
   const photoFb = Object.fromEntries(db.prepare("SELECT qid, text FROM explanations WHERE user_id=? AND skey=? AND kind='photo'").all(userId, skey).map((r) => [r.qid, r.text]));
+  const levelFb = Object.fromEntries(db.prepare("SELECT qid, text FROM explanations WHERE user_id=? AND skey=? AND kind='level'").all(userId, skey).map((r) => [r.qid, r.text]));
   const tag = (q) => revSet.has(q.id) ? { kind: 'review', from: srsMap[q.id] ? skeyLabel(srsMap[q.id].first_skey) : 'earlier' } : q.source === 'ai' ? { kind: 'new' } : null;
   const mcq = run.list.m.map(question).filter(Boolean).map((q) => {
     const a = ans[q.id]; const out = { id: q.id, q: q.body.q, options: q.body.options, tag: tag(q) };
@@ -289,8 +316,9 @@ function runView(userId, skey) {
     return out;
   });
   const written = run.list.w.map(question).filter(Boolean).map((q) => {
-    const a = ans[q.id]; const out = { id: q.id, q: q.body.q, marks: q.body.points.length, tag: tag(q), text: a ? a.text || '' : '' };
-    if (a && a.opened) Object.assign(out, { points: q.body.points, ticks: JSON.parse(a.ticks || '[]'), ai: expl[q.id] || null, feedback: photoFb[q.id] || null });
+    const a = ans[q.id]; const out = { id: q.id, q: q.body.q, marks: q.body.points.length, tag: tag(q), text: a ? a.text || '' : '', crit: criteria.publicInfo(q.subject, q.body) };
+    if (a && a.opened) Object.assign(out, { points: q.body.points, ticks: JSON.parse(a.ticks || '[]'), ai: expl[q.id] || null, feedback: photoFb[q.id] || null,
+      levels: q.body.criterion ? q.body.levels : null, level: a.level == null ? null : a.level, levelFeedback: levelFb[q.id] || null });
     return out;
   });
   // A "not set up" note saved before the API key was added is stale once Claude is available.
@@ -334,7 +362,10 @@ function report(userId) {
     const b = JSON.parse(r.body); return { when: r.updated_at, label: skeyLabel(r.skey), subject: r.subject, q: b.q, chose: b.options[r.choice], correct: b.options[b.answer] };
   });
   const weekly = db.prepare(`SELECT strftime('%Y-%W', updated_at) wk, COUNT(*) n, SUM(correct) c FROM answers WHERE user_id=? AND choice IS NOT NULL GROUP BY wk ORDER BY wk DESC LIMIT 8`).all(userId).reverse();
-  return { bySubject, topics: Object.values(topics).sort((a, b) => a.right / a.n - b.right / b.n), sessions, recentWrong, weekly, memory: memory(userId) };
+  const crit = db.prepare(`SELECT q.subject sub, json_extract(q.body, '$.criterion') c, AVG(a.level) avg, MAX(a.level) best, COUNT(*) n FROM answers a JOIN questions q ON q.id=a.qid
+      WHERE a.user_id=? AND a.level IS NOT NULL GROUP BY sub, c ORDER BY sub, c`).all(userId)
+    .map((r) => ({ sub: r.sub, crit: r.c, name: criteria.nameOf(r.sub, r.c), avg: Math.round(r.avg * 10) / 10, best: r.best, n: r.n }));
+  return { bySubject, topics: Object.values(topics).sort((a, b) => a.right / a.n - b.right / b.n), sessions, recentWrong, weekly, criteria: crit, memory: memory(userId) };
 }
 
 function lastTopicQuiz(userId, set) {

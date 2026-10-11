@@ -13,6 +13,7 @@ const MODELS = {
   ask: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5',
   mark: process.env.CLAUDE_MODEL_MARK || 'claude-haiku-5-5',
   photo: process.env.CLAUDE_MODEL_PHOTO || 'claude-sonnet-5-5', // reading handwriting needs a stronger model than Haiku
+  level: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5', // MYP level judgement for criterion tasks
 };
 const modelFor = (kind) => MODELS[kind] || MODEL;
 const MOCK = process.env.AI_MOCK === '1';
@@ -85,18 +86,22 @@ const QUESTION_TOOL = {
         q: { type: 'string' }, options: { type: 'array', items: { type: 'string' }, minItems: 4, maxItems: 4 },
         answer: { type: 'integer', minimum: 0, maximum: 3 }, explanation: { type: 'string' } }, required: ['q', 'options', 'answer', 'explanation'] } },
       written: { type: 'array', items: { type: 'object', properties: {
-        q: { type: 'string' }, points: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 5 } }, required: ['q', 'points'] } },
+        q: { type: 'string' }, points: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 5 },
+        criterion: { type: 'string', enum: ['A', 'B', 'C', 'D'] }, command: { type: 'string' },
+        levels: { type: 'array', items: { type: 'string' }, minItems: 4, maxItems: 4 } }, required: ['q', 'points'] } },
     },
     required: ['mcq', 'written'],
   },
 };
 
-async function generateQuestions(userId, { subject, topic, nm, nw, avoid }) {
+async function generateQuestions(userId, { subject, topic, nm, nw, avoid, crit }) {
   if (MOCK) {
     log(userId, 'generate', { input_tokens: 0, output_tokens: 0 });
     return {
       mcq: Array.from({ length: nm }, (_, i) => ({ q: `[Test] ${topic}: practice question ${i + 1}. Pick B.`, options: ['Option A', 'Option B', 'Option C', 'Option D'], answer: 1, explanation: 'Test question: B is correct.' })),
-      written: Array.from({ length: nw }, (_, i) => ({ q: `[Test] ${topic}: written question ${i + 1}. Explain.`, points: ['First point', 'Second point'] })),
+      written: Array.from({ length: nw }, (_, i) => (crit && i === 0
+        ? { q: `[Test] Criterion ${crit.criterion} task on ${topic}. Explain fully.`, points: ['First element', 'Second element', 'Third element'], criterion: crit.criterion, command: 'Explain', levels: ['L1-2', 'L3-4', 'L5-6', 'L7-8'] }
+        : { q: `[Test] ${topic}: written question ${i + 1}. Explain.`, points: ['First point', 'Second point'] })),
     };
   }
   const prompt = `You write practice questions for a Grade 9 IB MYP student (Extended level) at an international school in Dubai.
@@ -112,6 +117,7 @@ Rules:
 - Work out every answer and every calculation twice before you save it. Accuracy matters more than variety.
 - "explanation": 1-2 sentences on why the correct answer is right, showing the calculation if there is one.
 - Each written question says what to do (calculate, explain, describe) and has 2 to 4 mark-scheme points, 1 mark each.
+${crit ? critInstructions(subject, crit) : ''}
 Save them by calling the save_questions tool. Do not write anything else.`;
   const res = await call(userId, 'generate', {
     max_tokens: 8000,
@@ -122,7 +128,10 @@ Save them by calling the save_questions tool. Do not write anything else.`;
   const out = structured(res) || {};
   return {
     mcq: (out.mcq || []).filter((q) => q && typeof q.q === 'string' && Array.isArray(q.options) && q.options.length === 4 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < 4).slice(0, nm),
-    written: (out.written || []).filter((q) => q && typeof q.q === 'string' && Array.isArray(q.points) && q.points.length >= 1).slice(0, nw),
+    written: (out.written || []).filter((q) => q && typeof q.q === 'string' && Array.isArray(q.points) && q.points.length >= 1).slice(0, nw).map((q) => {
+      const okCrit = crit && q.criterion === crit.criterion && Array.isArray(q.levels) && q.levels.length === 4;
+      return okCrit ? { q: q.q, points: q.points, criterion: q.criterion, command: String(q.command || '').trim(), levels: q.levels.map(String) } : { q: q.q, points: q.points };
+    }),
   };
 }
 
@@ -233,6 +242,58 @@ Record the result by calling the record_photo_check tool. Do not write anything 
   };
 }
 
+
+// Extra instructions so exactly one written question is an MYP criterion task.
+const CRIT_HOW = {
+  science: { A: 'explain or apply scientific knowledge to a new situation, in several parts', B: 'design an investigation: research question, hypothesis with a scientific reason, variables and how they are controlled, method with repeats', C: 'give a small data table (invented, realistic) and ask the student to present it, describe the trend, conclude against a hypothesis, and evaluate the method with improvements', D: 'discuss how this science affects society, the environment or the economy, with arguments on different sides and a justified conclusion' },
+  math: { A: 'solve problems with the methods of this topic, in several parts', B: 'investigate a pattern: describe it, find a general rule, test it, and justify why it always works', C: 'show full working for a problem, presenting it clearly with correct notation so another student could follow it', D: 'model a real-life situation, solve it, and judge whether the answer is realistic, suggesting an improvement to the model' },
+  english: { A: 'analyse an original short extract (write it yourself): techniques and their effect on the reader', B: 'plan and organise an analytical response: thesis, topic sentences, evidence, links', C: 'produce an original piece of writing for a stated purpose and audience, using named techniques', D: 'improve or rewrite a short original passage for register, vocabulary and sentence variety, and explain the choices' },
+};
+function critInstructions(subject, crit) {
+  const kind = /Math/.test(subject) ? 'math' : /English/.test(subject) ? 'english' : 'science';
+  return `MYP criterion task: exactly ONE of the written questions (put it first) must be a Criterion ${crit.criterion} practice task (${crit.name}). It should ${CRIT_HOW[kind][crit.criterion]}.
+For that question also set "criterion": "${crit.criterion}", "command": the main IB command term it uses (e.g. Explain, Design, Evaluate, Discuss, Investigate, Justify, Analyse, Show), "points": 3 to 5 key elements a full answer includes, and "levels": exactly 4 short descriptions (one sentence each, written for THIS task) of what an answer at level 1–2, 3–4, 5–6 and 7–8 includes. The other written questions have no criterion fields.`;
+}
+
+// ---- 3c. MYP-style level for a criterion task ----
+const LEVEL_TOOL = {
+  name: 'record_level',
+  description: 'Record the MYP-style level for the answer.',
+  input_schema: { type: 'object', properties: {
+    level: { type: 'integer', minimum: 0, maximum: 8 },
+    awarded: { type: 'array', items: { type: 'boolean' }, description: 'One true/false per key element, in order.' },
+    strengths: { type: 'string', description: 'One or two sentences on what the answer does well.' },
+    next: { type: 'string', description: 'What exactly to add or change to reach the next band (concrete, 1–3 short points).' } },
+  required: ['level', 'awarded', 'strengths', 'next'] },
+};
+async function markLevel(userId, subject, criterionName, body, text) {
+  if (MOCK) { log(userId, 'level', null); return { level: 5, awarded: body.points.map((_, i) => i < 2), feedback: '[Test] Good start. To reach 7–8: add an evaluation.' }; }
+  const res = await call(userId, 'level', {
+    max_tokens: 900,
+    tools: [LEVEL_TOOL],
+    tool_choice: { type: 'auto' },
+    messages: [{ role: 'user', content: `You are an experienced IB MYP ${subject} teacher marking a Grade 9 (MYP Year 4) practice task for Criterion ${body.criterion} (${criterionName}).
+Task: ${body.q}
+Command term: ${body.command || '(not given)'}
+Key elements of a full answer:
+${body.points.map((p, j) => `${j + 1}) ${p}`).join('\n')}
+Level descriptions for this task:
+1–2: ${body.levels[0]}
+3–4: ${body.levels[1]}
+5–6: ${body.levels[2]}
+7–8: ${body.levels[3]}
+
+Student's answer:
+${text}
+
+Choose the band that best fits the answer as a whole, then the higher number of the band if the answer fully meets it, else the lower. Level 0 if the answer does not reach 1–2. Check that the answer does what the command term asks (e.g. "explain" needs reasons, "evaluate" needs a judgement). Be fair and encouraging but honest. This is a practice estimate.
+Record the result by calling the record_level tool. Do not write anything else.` }],
+  });
+  const out = structured(res) || {};
+  const level = Math.max(0, Math.min(8, Math.round(Number(out.level) || 0)));
+  return { level, awarded: body.points.map((_, i) => !!(out.awarded || [])[i]), feedback: [String(out.strengths || ''), out.next ? 'To reach the next band: ' + String(out.next) : ''].filter(Boolean).join('\n') };
+}
+
 // ---- 4. Questions about a Learn topic ----
 async function askTopic(userId, { subject, title, context, question }) {
   if (MOCK) { log(userId, 'ask', null); return `[Test answer] About ${title}: ${question}`; }
@@ -248,4 +309,4 @@ Answer clearly and simply in under 220 words. Use a small worked example with nu
   return textOf(res);
 }
 
-module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, markPhoto, monthCost, MODEL, MODELS, MOCK, MONTHLY_LIMIT_USD, AIError };
+module.exports = { askTopic, available, generateQuestions, explainMcq, explainWritten, markWritten, markPhoto, markLevel, monthCost, MODEL, MODELS, MOCK, MONTHLY_LIMIT_USD, AIError };

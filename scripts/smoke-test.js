@@ -184,6 +184,26 @@ const server = app.listen(0, async () => {
     await req('admin', 'POST', `/api/admin/students/${uid}/ai`, { allowed: true });
     assert.equal((await req('s', 'GET', '/api/me/prefs')).data.aiOn, true);
 
+    // MYP criterion task: one per session; Claude-written when on, from the bank when off; level marking 0–8
+    let cr = await req('s', 'POST', '/api/runs/2-1/start', {});
+    let ct = cr.data.written.filter((x) => x.crit);
+    assert.equal(ct.length, 1, 'exactly one criterion task: ' + JSON.stringify(cr.data.written.map((x) => x.crit)));
+    assert.equal(ct[0].crit.criterion, ['A', 'B', 'C', 'D'][(2 * 7 + 1) % 4], 'criterion rotates through the plan');
+    assert.ok(ct[0].crit.name && !ct[0].levels, 'criterion name shown, levels hidden before answering');
+    await req('s', 'POST', '/api/runs/2-1/text', { qid: ct[0].id, text: 'A long enough practice answer for the criterion task.' });
+    await req('s', 'POST', '/api/runs/2-1/open', { qid: ct[0].id });
+    const lm = await req('s', 'POST', '/api/runs/2-1/aimark', { qid: ct[0].id });
+    assert.equal(lm.data.level, 5);
+    const ctv = (await req('s', 'GET', '/api/runs/2-1')).data.written.find((x) => x.id === ct[0].id);
+    assert.ok(ctv.levels.length === 4 && ctv.level === 5 && ctv.levelFeedback, 'levels, estimate and feedback after marking');
+    await req('s', 'POST', '/api/me/prefs', { ai: false });
+    cr = await req('s', 'POST', '/api/runs/2-2/start', {});
+    ct = cr.data.written.filter((x) => x.crit);
+    assert.ok(ct.length === 1 && ct[0].id[0] === 'K', 'bank criterion task when Claude is off');
+    await req('s', 'POST', '/api/me/prefs', { ai: true });
+    const repA = await req('admin', 'GET', `/api/admin/students/${uid}/report`);
+    assert.ok(repA.data.criteria.some((c) => c.avg === 5), 'admin report shows criterion levels');
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');

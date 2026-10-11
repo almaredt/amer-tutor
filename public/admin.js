@@ -60,6 +60,9 @@ async function student(id) {
     <div class="section"><h2>Topics, weakest first</h2>
       <div class="table-wrap"><table><thead><tr><th>Topic</th><th>Quiz accuracy</th><th class="n">Answered</th></tr></thead><tbody>
       ${r.topics.map((t) => { const p = pct(t.right, t.n); return `<tr><td>${esc(t.name || t.set)}</td><td>${p}% ${meter(p)}</td><td class="n">${t.n}</td></tr>`; }).join('') || '<tr><td colspan="3" class="note">No answers yet.</td></tr>'}</tbody></table></div></div>
+    <div class="section"><h2>MYP criteria (Claude's level estimates)</h2>
+      <div class="table-wrap"><table><thead><tr><th>Subject</th><th>Criterion</th><th class="n">Average level</th><th class="n">Best</th><th class="n">Tasks</th></tr></thead><tbody>
+      ${(r.criteria || []).map((c) => `<tr><td>${esc(c.sub)}</td><td>${esc(c.crit)} · ${esc(c.name)}</td><td class="n">${c.avg} / 8 ${meter(c.avg / 8 * 100)}</td><td class="n">${c.best}</td><td class="n">${c.n}</td></tr>`).join('') || '<tr><td colspan="5" class="note">No criterion tasks marked with Claude yet.</td></tr>'}</tbody></table></div></div>
     <div class="section"><h2>Questions answered per week</h2>
       <div class="panel">${r.weekly.length ? `<div class="bars">${r.weekly.map((w) => `<div><span>${pct(w.c || 0, w.n)}%</span><span class="b" data-h="${(w.n / maxN) * 100}"></span><span>wk ${w.wk.slice(5)}</span></div>`).join('')}</div><p class="note">Bar height = questions answered that week; the number on top = accuracy.</p>` : '<p class="note">No answers yet.</p>'}</div></div>
     <div class="section"><h2>Recent mistakes</h2>

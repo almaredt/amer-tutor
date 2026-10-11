@@ -227,7 +227,9 @@ function shrinkPhoto(file) {
 
 function writtenEl(q, n) {
   const el = document.createElement('div'); el.className = 'q'; const d = day();
-  el.innerHTML = `<div class="qh"><span class="num">W${n + 1}</span><span class="qt">${esc(q.q)}</span>${tagHtml(q)}<span class="marks">[${q.marks}]</span></div>
+  const cr = q.crit;
+  el.innerHTML = `<div class="qh"><span class="num">W${n + 1}</span><span class="qt">${esc(q.q)}</span>${tagHtml(q)}<span class="marks">${cr ? '[0–8]' : `[${q.marks}]`}</span></div>
+    ${cr ? `<div class="crit"><span class="crit-badge">MYP Criterion ${esc(cr.criterion)} · ${esc(cr.name)}</span>${cr.command ? `<span class="crit-cmd"><b>${esc(cr.command)}</b> = ${esc(cr.commandHint)}</span>` : ''}</div>` : ''}
     <textarea placeholder="Write your answer here…" ${q.points ? 'readonly' : ''}>${esc(q.text)}</textarea><div class="msw"></div>`;
   const ta = el.querySelector('textarea'), msw = el.querySelector('.msw');
   if (!q.points && window.MathKeys) MathKeys.attach(ta, d.sub);
@@ -258,10 +260,16 @@ function writtenEl(q, n) {
       return;
     }
     const got = q.ticks.filter(Boolean).length, full = got >= q.marks;
-    msw.innerHTML = `<div class="ms"><span class="label">Mark scheme · tick each point the answer includes</span>
+    const band = (lv) => (lv == null ? -1 : lv === 0 ? -1 : Math.ceil(lv / 2) - 1);
+    const levelsHtml = q.levels ? `<div class="levels"><span class="label">MYP levels for this task${q.level != null ? ` · Claude's estimate: <b class="lvl-pill">${q.level} / 8</b>` : ''}</span>
+      ${['1–2', '3–4', '5–6', '7–8'].map((b, i) => `<div class="lv ${band(q.level) === i ? 'on' : ''}"><span class="lv-b">${b}</span><span>${esc(q.levels[i] || '')}</span></div>`).join('')}
+      ${q.level == null ? `<span class="note">${ST.run.aiAvailable ? 'Tick the key elements, then ask Claude for a level estimate.' : 'Compare your answer with the levels to judge it yourself.'}</span>` : ''}</div>` : '';
+    msw.innerHTML = `<div class="ms"><span class="label">${q.levels ? 'Key elements · tick each one the answer includes' : 'Mark scheme · tick each point the answer includes'}</span>
       ${q.points.map((p, j) => `<label><input type="checkbox" data-j="${j}" ${q.ticks[j] ? 'checked' : ''}><span>${esc(p)}</span></label>`).join('')}
-      <span class="note">${got} / ${q.marks} marks · ${full ? 'full marks' : 'saved: it will come back next session'}</span>
-      ${ST.run.aiAvailable ? '<div class="row"><button class="btn" data-mark>Mark it with Claude</button></div>' : ''}
+      <span class="note">${got} / ${q.marks} ${q.levels ? 'elements' : 'marks'} · ${full ? 'all included' : 'saved: it will come back next session'}</span>
+      ${levelsHtml}
+      ${ST.run.aiAvailable ? `<div class="row"><button class="btn" data-mark>${q.levels ? 'Mark at MYP level (Claude)' : 'Mark it with Claude'}</button></div>` : ''}
+      ${q.levelFeedback ? `<div class="feedback">${esc(q.levelFeedback)}</div>` : ''}
       ${q.feedback ? `<div class="feedback">${esc(q.feedback)}</div>` : ''}</div>
       <div class="row"><button class="btn" data-exp>Explain this question</button><button class="linkbtn flag" data-flag>Report a problem</button></div>
       ${q.ai ? `<div class="exp">${esc(q.ai)}</div>` : ''}`;
@@ -272,8 +280,8 @@ function writtenEl(q, n) {
     const mk = msw.querySelector('[data-mark]');
     if (mk) mk.onclick = async () => {
       mk.disabled = true; mk.innerHTML = '<span class="spin"></span>Claude is marking…';
-      try { const r = await api(`/api/runs/${d.skey}/aimark`, { qid: q.id }); await reloadRun(); const nq = ST.run.written.find((x) => x.id === q.id); if (nq) { nq.feedback = r.feedback; const i = ST.run.written.indexOf(nq); const old = $('qw').children[i]; old.replaceWith(writtenEl(nq, i)); } refreshMemory(); }
-      catch (e) { toast(e.message); mk.disabled = false; mk.textContent = 'Mark it with Claude'; }
+      try { const r = await api(`/api/runs/${d.skey}/aimark`, { qid: q.id }); await reloadRun(); const nq = ST.run.written.find((x) => x.id === q.id); if (nq) { if (!nq.levels) nq.feedback = r.feedback; const i = ST.run.written.indexOf(nq); const old = $('qw').children[i]; old.replaceWith(writtenEl(nq, i)); } refreshMemory(); }
+      catch (e) { toast(e.message); mk.disabled = false; mk.textContent = q.levels ? 'Mark at MYP level (Claude)' : 'Mark it with Claude'; }
     };
     wireExtras(msw, q);
   };
