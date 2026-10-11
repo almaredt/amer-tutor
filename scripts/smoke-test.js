@@ -127,6 +127,14 @@ const server = app.listen(0, async () => {
     const mkj = await fetch(base + '/mathkeys.js'); assert.equal(mkj.status, 200, 'symbol keys script served');
     assert.ok((await (await fetch(base + '/')).text()).includes('/mathkeys.js'), 'student page loads symbol keys');
 
+    // a session built from an older plan (other subject) is rebuilt
+    const uid = db.prepare("SELECT id FROM users WHERE username='amer'").get().id;
+    const chemQ = db.prepare("SELECT id FROM questions WHERE subject='Chemistry' AND type='m' LIMIT 1").get().id;
+    db.prepare("DELETE FROM runs WHERE user_id=? AND skey='1-0'").run(uid);
+    db.prepare("INSERT INTO runs (user_id, skey, date, list, rev) VALUES (?,?,?,?,?)").run(uid, '1-0', '2026-10-18', JSON.stringify({ m: [chemQ], w: [] }), '[]');
+    const stale = await req('s', 'GET', '/api/runs/1-0');
+    assert.equal(stale.data.started, false, 'stale Sunday (Chemistry) run is dropped for the Math plan');
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');

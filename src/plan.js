@@ -73,14 +73,17 @@ function weekPlan(wi) {
     { sub: 'Mistakes', topic: 'Fix the questions still being answered wrong', kind: 'fix', sets: [] },
   ];
   if (wi >= 7) { s[1].kind = 'practice'; s[2].kind = 'practice'; }
-  if (wi === 0) s[0] = { sub: 'Chemistry', topic: 'Test tomorrow: isotopes, relative atomic mass, electron configuration, ions, balancing equations', kind: 'mock', sets: ['C1'], test: 'Chemistry Unit 2 summative this week' };
+  // Sundays are always Math. Mock tests for Physics/Chemistry go on the Thursday before the Monday test.
   if (wi === 2) s[4].note = 'Stopping distance & solubility practical on Mon 2 Nov.';
-  if (wi === 3) s[0] = { sub: 'Mock', topic: 'Math CFU1 tomorrow: proportion and factorising', kind: 'mock', sets: ['M1', 'M2', 'M3'], test: 'Math CFU1 on Mon 2 Nov' };
+  if (wi === 3) s[0] = { sub: 'Math', topic: 'Math CFU1 tomorrow: proportion and factorising', kind: 'mock', sets: ['M1', 'M2', 'M3'], test: 'Math CFU1 on Mon 2 Nov' };
   if (wi === 4) s[3] = { sub: 'Math', topic: 'Review for CFU2: factorising, quadratic formula, discriminant', kind: 'practice', sets: ['M3', 'M4', 'M5'] };
-  if (wi === 5) s[0] = { sub: 'Mock', topic: 'Mock: Physics road safety + Chemistry bonding', kind: 'mock', sets: ['P3', 'P5', 'C2', 'C3', 'C4', 'C5'], test: 'Math CFU2, Physics road safety and Chemistry summative on Mon 16 Nov' };
-  if (wi === 6) s[0] = { sub: 'Mock', topic: 'Full mock: Math Unit 2 (proportion + quadratics)', kind: 'mock', sets: M.slice(0, 6), test: 'Math End of Unit on Mon 23 Nov' };
-  if (wi === 7) s[0] = { sub: 'Mock', topic: 'Full mock: Physics Forces & Motion', kind: 'mock', sets: P, test: 'Physics summative on Mon 30 Nov' };
-  if (wi === 8) s[0] = { sub: 'Mock', topic: 'Full mock: Chemistry Structure & Bonding', kind: 'mock', sets: C2_6, test: 'Chemistry summative on Mon 7 Dec' };
+  if (wi === 5) {
+    s[4] = { sub: 'Mock', topic: 'Mock: Physics road safety + Chemistry bonding', kind: 'mock', sets: ['P3', 'P5', 'C2', 'C3', 'C4', 'C5'], test: 'Physics road safety and Chemistry summative on Mon 16 Nov' };
+    s[0] = { sub: 'Math', topic: 'Math CFU2 tomorrow: factorising, quadratic formula, discriminant', kind: 'mock', sets: ['M3', 'M4', 'M5'], test: 'Math CFU2 on Mon 16 Nov' };
+  }
+  if (wi === 6) s[0] = { sub: 'Math', topic: 'Full mock: Math Unit 2 (proportion + quadratics)', kind: 'mock', sets: M.slice(0, 6), test: 'Math End of Unit on Mon 23 Nov' };
+  if (wi === 7) s[4] = { sub: 'Mock', topic: 'Full mock: Physics Forces & Motion', kind: 'mock', sets: P, test: 'Physics summative on Mon 30 Nov' };
+  if (wi === 8) s[4] = { sub: 'Mock', topic: 'Full mock: Chemistry Structure & Bonding', kind: 'mock', sets: C2_6, test: 'Chemistry summative on Mon 7 Dec' };
   s.push({ sub: 'English', ...ENG[wi] });
   return s;
 }

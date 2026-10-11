@@ -226,8 +226,24 @@ async function aiMark(userId, skey, qid) {
 }
 
 // ---------- views for the client (never send answers before they are earned) ----------
+// A session whose questions are all from another subject was built from an older plan
+// (e.g. a day that changed from Chemistry to Math). Throw it away so it is built again.
+function dropIfStale(userId, skey, p, run) {
+  if (!run || p.session.kind === 'fix') return run;
+  const ids = [...run.list.m, ...run.list.w];
+  if (!ids.length) return run;
+  const want = new Set(subjectsOf(p.session));
+  if (ids.some((id) => { const q = question(id); return q && want.has(q.subject); })) return run;
+  resetRun(userId, skey);
+  db.transaction(() => {
+    db.prepare('DELETE FROM seen WHERE user_id=? AND skey=?').run(userId, skey);
+    db.prepare('DELETE FROM runs WHERE user_id=? AND skey=?').run(userId, skey);
+  })();
+  return null;
+}
+
 function runView(userId, skey) {
-  const p = parseSkey(skey); const run = getRun(userId, skey);
+  const p = parseSkey(skey); const run = dropIfStale(userId, skey, p, getRun(userId, skey));
   if (!run) {
     const prop = proposal(userId, skey);
     return { started: false, mix: { rev: prop.rev.m.length + prop.rev.w.length, bank: prop.bank.m.length + prop.bank.w.length, ai: prop.ai.m + prop.ai.w }, aiAvailable: ai.available(), kind: p.session.kind };
