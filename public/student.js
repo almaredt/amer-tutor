@@ -41,7 +41,8 @@ async function loadPlan(pickToday) {
 function renderShell() {
   $('root').innerHTML = `
   <div class="topbar"><div class="tabs"><button data-v="study" class="sel">Study plan</button><button data-v="learn">Learn topics</button></div>
-    <div class="who">${esc(ST.me.name)} · <button class="linkbtn" id="pwBtn">Change password</button> · <button class="linkbtn" id="outBtn">Log out</button></div></div>
+    <div class="who">${esc(ST.me.name)} · <button class="linkbtn" id="installBtn" hidden>Install app</button><span id="installSep" hidden> · </span><button class="linkbtn" id="remindBtn">🔔 Reminder</button> · <button class="linkbtn" id="pwBtn">Change password</button> · <button class="linkbtn" id="outBtn">Log out</button></div></div>
+  <div class="remind" id="remindBox" hidden></div>
   <div id="learnView" hidden><div class="learn"><nav class="tlist" id="tlist" aria-label="Topics"></nav><div id="lessonWrap"></div></div></div>
   <div id="studyView" class="section">
   <header><div><h1>What do I study today?</h1><p class="sub">Every session: 10 quiz + 5 written questions. Wrong answers come back until they stick.</p></div>
@@ -56,6 +57,8 @@ function renderShell() {
     </aside></div></div>`;
   document.querySelectorAll('.tabs [data-v]').forEach((b) => (b.onclick = () => setMode(b.dataset.v)));
   $('outBtn').onclick = logout;
+  $('remindBtn').onclick = toggleReminder;
+  wireInstall();
   $('pwBtn').onclick = changePassword;
   renderNav(); renderSide();
 }
@@ -393,3 +396,61 @@ async function askTopic(t) {
 }
 
 boot();
+
+// ---------- install as an app + daily reminder notification ----------
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; wireInstall(); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function wireInstall() {
+  const b = $('installBtn'); if (!b) return;
+  const show = !standalone() && (installEvt || isIOS);
+  b.hidden = !show; $('installSep').hidden = !show;
+  b.onclick = async () => {
+    if (installEvt) { installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; wireInstall(); return; }
+    const box = $('remindBox'); box.hidden = false;
+    box.innerHTML = '<b>Install on iPhone / iPad</b><p class="note">In Safari tap the Share button, then <b>Add to Home Screen</b>. Open Study Week from the home screen icon, then turn on 🔔 Reminder there.</p><button class="linkbtn" id="rmClose">Close</button>';
+    $('rmClose').onclick = () => { box.hidden = true; };
+  };
+}
+function b64ToBytes(b64) { const p = '='.repeat((4 - (b64.length % 4)) % 4), raw = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); }
+async function toggleReminder() {
+  const box = $('remindBox');
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false;
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  if (!supported) {
+    box.innerHTML = (isIOS && !standalone()
+      ? '<b>Reminders on iPhone</b><p class="note">First install the app: in Safari tap Share → <b>Add to Home Screen</b>. Open Study Week from the home screen, then tap 🔔 Reminder again.</p>'
+      : '<p class="note">This browser cannot show notifications. Try Chrome on Android or a computer.</p>') + '<button class="linkbtn" id="rmClose">Close</button>';
+    $('rmClose').onclick = () => { box.hidden = true; }; return;
+  }
+  let st; try { st = await api('/api/push/settings'); } catch (e) { box.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const draw = () => {
+    box.innerHTML = `<b>Daily study reminder</b>
+      <div class="row"><label class="field inline"><span>Time</span><input type="time" id="rmTime" value="${esc(st.time)}" step="300"></label>
+      <button class="btn primary" id="rmOn">${st.enabled ? 'Save time' : 'Turn on'}</button>
+      ${st.enabled ? '<button class="btn" id="rmOff">Turn off on this device</button>' : ''}<button class="linkbtn" id="rmClose">Close</button></div>
+      <p class="note" id="rmMsg">${st.enabled ? `On: a notification every day at ${esc(st.time)} (Dubai time), skipped once today's session is marked done.` : 'Get a notification on this device at your study time each day.'}</p>`;
+    $('rmClose').onclick = () => { box.hidden = true; };
+    $('rmOn').onclick = async () => {
+      const msg = $('rmMsg'), time = $('rmTime').value;
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') { msg.textContent = 'Notifications are blocked. Allow them for this site in the browser settings, then try again.'; return; }
+        const reg = await navigator.serviceWorker.ready;
+        const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(st.publicKey) });
+        await api('/api/push/subscribe', { subscription: sub.toJSON(), time });
+        if (!st.enabled) await api('/api/push/test', {}).catch(() => {});
+        st = await api('/api/push/settings'); draw(); toast('Reminder saved');
+      } catch (e) { msg.textContent = 'Could not turn on reminders: ' + e.message; }
+    };
+    const off = $('rmOff');
+    if (off) off.onclick = async () => {
+      try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); const ep = sub && sub.endpoint; if (sub) await sub.unsubscribe(); await api('/api/push/unsubscribe', { endpoint: ep }); st = await api('/api/push/settings'); draw(); toast('Reminder off on this device'); }
+      catch (e) { $('rmMsg').textContent = e.message; }
+    };
+  };
+  draw();
+}

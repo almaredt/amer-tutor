@@ -154,6 +154,22 @@ const server = app.listen(0, async () => {
     const wh = await fetch(base + '/report/weekly', { headers: { Cookie: jar.admin } });
     assert.ok((await wh.text()).includes('گزارش هفتگی'), 'report is in Persian');
 
+    // daily reminder: key, validation, payload skipped when today's session is done
+    const ps = await req('s', 'GET', '/api/push/settings');
+    assert.ok(ps.data.publicKey && ps.data.publicKey.length > 40 && ps.data.time === '17:00', 'push settings');
+    const fakeSub = { endpoint: 'https://push.example.invalid/abc', keys: { p256dh: 'x', auth: 'y' } };
+    assert.equal((await req('s', 'POST', '/api/push/subscribe', { subscription: fakeSub, time: '25:00' })).status, 400, 'bad time rejected');
+    assert.equal((await req('s', 'POST', '/api/push/subscribe', { subscription: fakeSub, time: '18:30' })).status, 200);
+    assert.equal((await req('s', 'GET', '/api/push/settings')).data.enabled, true);
+    const pushMod = require('../src/push');
+    const d00 = require('../src/plan').sessionDate(0, 0);
+    assert.ok(pushMod.reminderPayload(uid, d00).body.includes('Math'), 'reminder names today\'s subject');
+    db.prepare("INSERT OR REPLACE INTO runs (user_id, skey, date, list, done_at) VALUES (?, '0-0', ?, '{\"m\":[],\"w\":[]}', datetime('now'))").run(uid, d00);
+    assert.equal(pushMod.reminderPayload(uid, d00), null, 'no reminder once the session is done');
+    assert.equal((await req('s', 'POST', '/api/push/unsubscribe', { endpoint: fakeSub.endpoint })).status, 200);
+    assert.equal((await req('s', 'GET', '/api/push/settings')).data.enabled, false);
+    assert.equal((await fetch(base + '/sw.js')).status, 200); assert.equal((await fetch(base + '/manifest.webmanifest')).status, 200);
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');

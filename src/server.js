@@ -80,6 +80,15 @@ app.post('/api/runs/:skey/text', S, (req, res) => { if (skeyOr400(req, res)) sen
 app.post('/api/runs/:skey/open', S, (req, res) => { if (skeyOr400(req, res)) send(res, tutor.openScheme(req.user.id, req.params.skey, String(req.body.qid))); });
 app.post('/api/runs/:skey/ticks', S, (req, res) => { if (skeyOr400(req, res)) send(res, tutor.setTicks(req.user.id, req.params.skey, String(req.body.qid), req.body.ticks)); });
 app.post('/api/runs/:skey/explain', S, wrap(async (req, res) => { if (skeyOr400(req, res)) send(res, await tutor.explain(req.user.id, req.params.skey, String(req.body.qid))); }));
+// Daily reminder notifications
+const push = require('./push');
+app.get('/api/push/settings', S, (req, res) => res.json(push.settings(req.user.id)));
+app.post('/api/push/subscribe', S, (req, res) => send(res, push.subscribe(req.user.id, req.body.subscription, req.body.time)));
+app.post('/api/push/unsubscribe', S, (req, res) => send(res, push.unsubscribe(req.user.id, req.body.endpoint)));
+app.post('/api/push/test', S, wrap(async (req, res) => {
+  const n = await push.sendTo(req.user.id, { title: 'Reminders are on', body: 'You will get a reminder at your study time each day.', url: '/' });
+  send(res, n ? { ok: true, sent: n } : { error: 'No device is subscribed yet.' });
+}));
 app.post('/api/runs/:skey/photo', S, wrap(async (req, res) => { if (skeyOr400(req, res)) send(res, await tutor.photoMark(req.user.id, req.params.skey, String(req.body.qid), req.body.image)); }));
 app.post('/api/runs/:skey/aimark', S, wrap(async (req, res) => { if (skeyOr400(req, res)) send(res, await tutor.aiMark(req.user.id, req.params.skey, String(req.body.qid))); }));
 app.post('/api/runs/:skey/done', S, (req, res) => {
@@ -199,5 +208,6 @@ const PORT = Number(process.env.PORT || 3100);
 const HOST = process.env.HOST || '127.0.0.1';
 if (require.main === module) {
   app.listen(PORT, HOST, () => console.log(`Amer Tutor running on http://${HOST}:${PORT}  (Claude: ${ai.MOCK ? 'mock' : ai.available() ? Object.entries(ai.MODELS).map(([k, m]) => k + '=' + m).join(', ') : 'not configured'})`));
+  push.start();
 }
 module.exports = app;

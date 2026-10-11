@@ -218,3 +218,8 @@ ol[type="A"]{margin:0;padding-left:22px}
 .photo-btn{display:inline-flex;align-items:center;gap:6px}
 .photo-btn.busy{opacity:.55;pointer-events:none}
 .photo-msg:empty{display:none}
+/* daily reminder + install panel */
+.remind{--subj:var(--math);background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;margin-top:8px}
+.remind .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.field.inline{display:inline-flex;align-items:center;gap:8px}
+.field.inline input{width:auto}
