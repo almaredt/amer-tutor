@@ -55,26 +55,32 @@ class AskFirstTime(paramiko.MissingHostKeyPolicy):
         client.save_host_keys(KNOWN_HOSTS)
 
 
-def connect():
+def new_client():
     client = paramiko.SSHClient()
     if os.path.exists(KNOWN_HOSTS):
         client.load_host_keys(KNOWN_HOSTS)
     client.set_missing_host_key_policy(AskFirstTime())
+    return client
 
-    # 1) try SSH keys / agent
+
+def connect():
+    # 1) try SSH keys / agent (skipped quietly when there are none)
+    client = new_client()
     try:
         client.connect(HOST, PORT, USER, timeout=15, look_for_keys=True, allow_agent=True)
         return client, None
-    except paramiko.AuthenticationException:
-        pass
     except paramiko.BadHostKeyException:
         raise SystemExit(
             "WARNING: the server key has CHANGED. If you reinstalled the server, delete the file\n"
             f"  {KNOWN_HOSTS}\nand run again. Otherwise do not continue."
         )
+    except paramiko.SSHException:
+        # no key, or the key was refused -> fall back to the password
+        client.close()
 
     # 2) password
     pw = getpass.getpass(f"Password for {USER}@{HOST}: ")
+    client = new_client()
     client.connect(HOST, PORT, USER, password=pw, timeout=15, look_for_keys=False, allow_agent=False)
     return client, pw
 
