@@ -120,27 +120,60 @@ sudo crontab -u amertutor -e
 
 ## به‌روزرسانی (هر بار که برنامه تغییر کرد)
 
-۱. فایل zip جدید را از PowerShell ویندوز به سرور بفرستید:
-
-```powershell
-scp amer-tutor.zip root@162.35.163.244:/tmp/
-```
-
-۲. روی سرور فقط این یک دستور را اجرا کنید:
+کد برنامه در مخزن خصوصی **github.com/almaredt/amer-tutor** است. بعد از راه‌اندازی یک‌باره پایین، هر به‌روزرسانی فقط همین یک دستور است:
 
 ```bash
-sudo unzip -o -q /tmp/amer-tutor.zip amer-tutor/scripts/update.sh -d /opt/ && sudo bash /opt/amer-tutor/scripts/update.sh /tmp/amer-tutor.zip
+sudo bash /opt/amer-tutor/scripts/update.sh
 ```
 
-اسکریپت خودش این کارها را انجام می‌دهد:
+اسکریپت این کارها را انجام می‌دهد:
 
 - از دیتابیس پشتیبان می‌گیرد.
-- از کد فعلی یک نسخه نگه می‌دارد تا اگر مشکلی پیش آمد بشود برگشت.
-- نسخه جدید را باز می‌کند. فایل `.env` و پوشه `data/` دست نمی‌خورند.
+- آخرین نسخه را از GitHub می‌گیرد.
 - پکیج‌ها را نصب و برنامه را ری‌استارت می‌کند.
 - چک می‌کند برنامه بالا آمده باشد.
 
-در پایان یا «✓ Updated and running» می‌بینید، یا پیام خطا همراه با دستور برگشت به نسخه قبل. سؤال‌های جدید بانک هنگام ری‌استارت خودکار به دیتابیس اضافه می‌شوند و پیشرفت دانش‌آموزان حفظ می‌شود.
+فایل `.env` و پوشه `data/` (پیشرفت دانش‌آموزان) دست نمی‌خورند. اگر مشکلی پیش بیاید، دستور برگشت به نسخه قبل را نشان می‌دهد.
+
+### راه‌اندازی یک‌باره اتصال سرور به GitHub
+
+۱. یک کلید فقط‌خواندنی (deploy key) برای سرور بسازید:
+
+```bash
+sudo apt install -y git
+sudo -u amertutor mkdir -p /opt/amer-tutor/.ssh && sudo chmod 700 /opt/amer-tutor/.ssh
+sudo -u amertutor ssh-keygen -t ed25519 -N "" -C "amer-tutor-vps" -f /opt/amer-tutor/.ssh/id_ed25519
+sudo -u amertutor sh -c 'ssh-keyscan github.com >> /opt/amer-tutor/.ssh/known_hosts'
+sudo cat /opt/amer-tutor/.ssh/id_ed25519.pub
+```
+
+۲. خط آخری که چاپ شد (با `ssh-ed25519` شروع می‌شود) را کپی کنید و در GitHub اضافه کنید:
+
+- به **github.com/almaredt/amer-tutor** بروید و از آنجا وارد **Settings ← Deploy keys ← Add deploy key** شوید.
+- عنوان را `VPS` بگذارید و کلید را paste کنید.
+- تیک **Allow write access** را **نزنید**.
+- **Add key** را بزنید.
+
+۳. پوشه برنامه را به GitHub وصل کنید و اولین به‌روزرسانی را اجرا کنید:
+
+```bash
+cd /opt/amer-tutor
+sudo -u amertutor git init -q -b main
+sudo -u amertutor git remote add origin git@github.com:almaredt/amer-tutor.git
+sudo -u amertutor git fetch origin
+sudo -u amertutor git reset --hard origin/main
+sudo bash scripts/update.sh
+```
+
+اگر در پایان «✓ Updated and running» دیدید، کار تمام است.
+
+### روش جایگزین با zip
+
+اگر روزی GitHub در دسترس نبود:
+
+```bash
+sudo bash /opt/amer-tutor/scripts/update.sh /tmp/amer-tutor.zip
+```
 
 ## این نسخه چه دارد
 
