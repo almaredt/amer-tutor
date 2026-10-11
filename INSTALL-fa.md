@@ -201,4 +201,15 @@ sudo bash /opt/amer-tutor/scripts/update.sh /tmp/amer-tutor.zip
 | خطای 502 | برنامه اجرا نیست. لاگ را با `journalctl` ببینید. |
 | Claude سؤال نمی‌سازد | کلید API را در `.env` چک کنید، بعد ری‌استارت کنید. در پنل ادمین، کارت «Claude this month» وضعیت را نشان می‌دهد. |
 
+## امن کردن ورود SSH (یک بار)
+
+فایل‌های `secure_server.py` و `secure_server.bat` را کنار `update_server.py` در پوشه‌ی کامپیوتر خودتان بگذارید و روی `secure_server.bat` دوبار کلیک کنید. این برنامه:
+
+1. یک کلید SSH روی همین کامپیوتر می‌سازد (فایل `amer_server_key`؛ از آن یک نسخه‌ی پشتیبان جای امن نگه دارید).
+2. با رمز `.env` وارد سرور می‌شود و کلید را اضافه می‌کند، بعد امتحان می‌کند که کلید کار می‌کند.
+3. بعد از تأیید شما: به‌روزرسانی امنیتی خودکار و fail2ban را روشن می‌کند و ورود با رمز را خاموش می‌کند.
+
+از آن به بعد `update_server.bat` خودش با کلید وصل می‌شود. برای برگرداندن ورود با رمز: `python secure_server.py --undo`. اگر فایل کلید گم شد، از کنسول (VNC) پنل InterServer این را بزنید:
+`rm /etc/ssh/sshd_config.d/00-amer-keys-only.conf && systemctl reload ssh`
+
 </div>

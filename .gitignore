@@ -4,3 +4,6 @@ backups/
 .env
 .ssh/
 *.log
+scripts/amer_server_key
+amer_server_key
+amer_known_hosts

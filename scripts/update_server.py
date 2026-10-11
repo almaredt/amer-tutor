@@ -14,7 +14,7 @@ Run:
 Password: put it in a file named .env next to this script:
     SSH_PASSWORD=your-root-password
 If .env has no password, it is asked each time.
-If you have an SSH key (C:\\Users\\<you>\\.ssh\\id_ed25519 or id_rsa), it is used first.
+If amer_server_key (made by secure_server.bat) or an SSH key in C:\\Users\\<you>\\.ssh exists, it is used first.
 """
 import getpass
 import os
@@ -45,6 +45,7 @@ except ImportError:
 HERE = os.path.dirname(os.path.abspath(__file__))
 KNOWN_HOSTS = os.path.join(HERE, "amer_known_hosts")
 ENV_FILE = os.path.join(HERE, ".env")
+KEY_FILE = os.path.join(HERE, "amer_server_key")  # made by secure_server.py
 
 
 def load_env(path):
@@ -107,7 +108,8 @@ def connect():
     # 1) try SSH keys / agent (skipped quietly when there are none)
     client = new_client()
     try:
-        client.connect(HOST, PORT, USER, timeout=15, look_for_keys=True, allow_agent=True)
+        key = KEY_FILE if os.path.exists(KEY_FILE) else None
+        client.connect(HOST, PORT, USER, timeout=15, key_filename=key, look_for_keys=True, allow_agent=True)
         return client, None
     except paramiko.BadHostKeyException:
         raise SystemExit(
