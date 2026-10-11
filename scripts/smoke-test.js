@@ -124,6 +124,8 @@ const server = app.listen(0, async () => {
     assert.ok(ask.data.text.includes('Test answer'));
     assert.ok((await req('s', 'GET', '/api/topics/stats')).status === 200);
     const lj = await fetch(base + '/learn.js'); assert.equal(lj.status, 200);
+    const mkj = await fetch(base + '/mathkeys.js'); assert.equal(mkj.status, 200, 'symbol keys script served');
+    assert.ok((await (await fetch(base + '/')).text()).includes('/mathkeys.js'), 'student page loads symbol keys');
 
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));

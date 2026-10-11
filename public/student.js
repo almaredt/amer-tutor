@@ -199,6 +199,7 @@ function writtenEl(q, n) {
   el.innerHTML = `<div class="qh"><span class="num">W${n + 1}</span><span class="qt">${esc(q.q)}</span>${tagHtml(q)}<span class="marks">[${q.marks}]</span></div>
     <textarea placeholder="Write your answer here…" ${q.points ? 'readonly' : ''}>${esc(q.text)}</textarea><div class="msw"></div>`;
   const ta = el.querySelector('textarea'), msw = el.querySelector('.msw');
+  if (!q.points && window.MathKeys) MathKeys.attach(ta, d.sub);
   let saveT;
   const draw = () => {
     if (!q.points) {
@@ -335,6 +336,7 @@ async function openTopic(id, keepScroll) {
     nb.onclick = () => { const n = items.find((li) => li.classList.contains('hid')); if (n) n.classList.remove('hid'); upd(); };
     ab.onclick = () => { items.forEach((li) => li.classList.remove('hid')); upd(); }; upd();
   });
+  if (window.MathKeys) MathKeys.attach($('askq'), t.subj);
   $('askbtn').onclick = () => askTopic(t);
   $('tquiz').onclick = () => openQuiz(t, 't-' + t.id + '-' + Date.now().toString(36));
   try { const r = await api(`/api/topics/${id}/last`); if (r.skey && ST.curTopic === id) { $('tcont').hidden = false; $('tcont').onclick = () => openQuiz(t, r.skey); } } catch (e) { /* ignore */ }

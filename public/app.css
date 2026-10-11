@@ -202,3 +202,15 @@ ol[type="A"]{margin:0;padding-left:22px}
 .tabs{display:flex;gap:6px}
 .tabs button{font:inherit;font-size:.85rem;font-weight:700;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:5px 14px;cursor:pointer}
 .tabs button.sel{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+/* symbol keys above answer boxes */
+.mkbar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:6px 0 4px}
+.mk{font:inherit;font-size:.95rem;white-space:nowrap;min-width:34px;height:34px;padding:0 6px;border-radius:7px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;line-height:1}
+.mk:hover{border-color:var(--subj,var(--math))}
+.mk:active{transform:translateY(1px)}
+.mkauto{display:inline-flex;align-items:center;gap:4px;font-size:.78rem;color:var(--muted,inherit);margin-left:6px;cursor:pointer}
+.mkhelp{font:inherit;font-size:.78rem;background:none;border:0;color:var(--subj,var(--math));text-decoration:underline;cursor:pointer;padding:2px 4px}
+.mkhint{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.8rem;line-height:1.5;margin:4px 0 6px;padding:7px 10px;border-radius:7px;background:var(--bg);border:1px dashed var(--line);color:var(--muted)}
+.mkhint>span:first-child{flex-basis:100%}
+.mkpair code{font-family:'JetBrains Mono',monospace;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.mkpair b{color:var(--ink);font-size:.95rem}
+@media (max-width:620px){.mkbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.mk{flex:0 0 auto}}
