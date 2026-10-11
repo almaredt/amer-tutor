@@ -156,12 +156,13 @@ app.get('/api/admin/overview', A, (req, res) => {
     return { ...u, sessionsDone: done, week: { n: wk.n, right: wk.c || 0 }, all: { n: all.n, right: all.c || 0 }, memory: tutor.memory(u.id) };
   });
   const flags = db.prepare('SELECT COUNT(*) n FROM flags WHERE resolved=0').get().n;
-  res.json({ students, flags, billing: billing.get(), ai: { available: ai.available(), mock: ai.MOCK, model: ai.MODEL, models: ai.MODELS, monthCost: ai.monthCost(), limit: ai.MONTHLY_LIMIT_USD } });
+  res.json({ students, flags, billing: billing.get(), aiGlobal: prefs.globalOn(), ai: { available: ai.available(), mock: ai.MOCK, model: ai.MODEL, models: ai.MODELS, monthCost: ai.monthCost(), limit: ai.MONTHLY_LIMIT_USD } });
 });
 app.get('/api/admin/options', A, (req, res) => res.json(profiles.options()));
 const billing = require('./billing');
 app.get('/api/admin/billing', A, (req, res) => res.json(billing.get()));
 app.put('/api/admin/billing', A, (req, res) => send(res, billing.set(req.body || {})));
+app.put('/api/admin/ai-global', A, (req, res) => res.json(prefs.setGlobal(!!(req.body || {}).on)));
 app.post('/api/admin/students/:id/plan', A, (req, res) => send(res, billing.setPlan(Number(req.params.id), String(req.body.plan || ''))));
 app.post('/api/admin/schools', A, (req, res) => send(res, profiles.createSchool(req.body.name, req.body.kind)));
 app.post('/api/admin/students', A, (req, res) => {

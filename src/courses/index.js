@@ -3,7 +3,7 @@
 const { makeCourse, makeDynamicCourse } = require('../plan');
 
 // Fixed courses have one plan for everyone; dynamic ones build a plan from each student's subjects.
-const DEFS = [require('./uptown-g9-2026t1'), require('./uptown-g11-2026t1')];
+const DEFS = [require('./uptown-g9-2026t1'), require('./uptown-g11-2026t1'), require('./uptown-g12-2026t1')];
 const COURSES = DEFS.map((d) => (d.dynamic ? makeDynamicCourse(d, []) : makeCourse(d)));
 const defById = Object.fromEntries(DEFS.map((d) => [d.id, d]));
 const byId = Object.fromEntries(COURSES.map((c) => [c.id, c]));

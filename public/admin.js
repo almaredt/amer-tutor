@@ -86,6 +86,7 @@ async function overview() {
       <p class="note">Only a username, a display name and the study profile are stored. Share the password with the student privately.</p></form>
     <form class="panel" id="billForm"><h3>Plans and limits</h3>
       <div class="form-row">
+        <label class="field"><span>Claude for all students</span><select id="aiAll"><option value="0" ${o.aiGlobal ? '' : 'selected'}>Off (question bank only)</option><option value="1" ${o.aiGlobal ? 'selected' : ''}>On</option></select></label>
         <label class="field"><span>Parent subscriptions</span><select id="bOn"><option value="0" ${o.billing.enabled ? '' : 'selected'}>Off (everything free)</option><option value="1" ${o.billing.enabled ? 'selected' : ''}>On</option></select></label>
         <label class="field"><span>Free: Claude per student per day (USD)</span><input id="bFree" type="number" min="0" max="20" step="0.05" value="${o.billing.plans.free.dailyUsd}"></label>
         <label class="field"><span>Family: Claude per student per day (USD)</span><input id="bFam" type="number" min="0" max="20" step="0.05" value="${o.billing.plans.family.dailyUsd}"></label>
@@ -104,6 +105,7 @@ async function overview() {
   $('billForm').onsubmit = async (e) => {
     e.preventDefault(); $('berr').textContent = '';
     try {
+      await api('/api/admin/ai-global', { on: $('aiAll').value === '1' }, 'PUT');
       await api('/api/admin/billing', { enabled: $('bOn').value === '1', plans: { free: { dailyUsd: Number($('bFree').value) }, family: { dailyUsd: Number($('bFam').value), priceAed: Number($('bPrice').value) } } }, 'PUT');
       toast('Plans saved');
     } catch (err) { $('berr').textContent = err.message; }

@@ -4,6 +4,7 @@ const db = require('./db');
 const ai = require('./ai');
 const prefs = require('./prefs');
 const criteria = require('./criteria');
+require('./banks'); // seeds the fixed banks of data-driven courses
 const courses = require('./courses');
 const { addDays, skeyLabel, weekOfSkey, DAYS } = require('./plan');
 
@@ -60,7 +61,10 @@ function bankPool(userId, session, type, exclude, C) {
   ids = ids.filter((id) => !exclude.includes(id));
   if (session.kind === 'practice' || session.kind === 'mock') ids.reverse();
   if (session.sets.length > 1) ids = shuffle(ids, session.sets.join('').length * 7 + userId);
-  return ids;
+  // When every question of these topics has been seen, use them again (in a new order) rather than leave the session short.
+  const again = db.prepare(`SELECT q.id FROM questions q WHERE q.course_id = ? AND q.set_code IN (${ph}) AND q.type = ? AND q.source = 'bank' AND q.status = 'active' AND q.id NOT LIKE 'K%'
+    AND q.id IN (SELECT qid FROM seen WHERE user_id = ?)`).all(C.id, ...session.sets, type, userId).map((r) => r.id).filter((id) => !exclude.includes(id));
+  return ids.concat(shuffle(again, Date.now() % 9973));
 }
 function shuffle(a, seed) {
   const b = a.slice(); let s = seed;

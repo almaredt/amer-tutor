@@ -7,6 +7,13 @@ for (const sql of ["ALTER TABLE users ADD COLUMN prefs TEXT", "ALTER TABLE users
 }
 
 const DEFAULTS = { ai: true, sessionMinutes: 30 };
+// One switch for everyone (admin page). Off by default: questions come from the fixed question banks only.
+const getSetting = (k) => (db.prepare('SELECT value FROM settings WHERE key=?').get(k) || {}).value;
+const globalOn = () => getSetting('ai_global') === '1';
+function setGlobal(on) {
+  db.prepare("INSERT INTO settings (key, value) VALUES ('ai_global', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(on ? '1' : '0');
+  return { on: globalOn() };
+}
 const MINUTES = [20, 30, 45, 60];
 
 function get(userId) {
@@ -15,10 +22,11 @@ function get(userId) {
   const out = { ...DEFAULTS, ...p };
   out.aiAllowed = u.ai_allowed !== 0;            // parent switch
   out.aiConfigured = ai.available();             // API key on the server
+  out.aiGlobal = globalOn();                      // admin switch for everyone
   // Per-student daily Claude cap (src/billing.js); a cap of $0 means no Claude for this plan.
   const limit = require('./billing').dailyLimit(userId);
   out.aiLimitReached = limit <= 0 || ai.userDayCost(userId) >= limit;
-  out.aiOn = out.aiConfigured && out.aiAllowed && out.ai !== false && !out.aiLimitReached;
+  out.aiOn = out.aiConfigured && out.aiGlobal && out.aiAllowed && out.ai !== false && !out.aiLimitReached;
   return out;
 }
 function set(userId, body) {
@@ -41,10 +49,11 @@ const aiOn = (userId) => get(userId).aiOn;
 function aiOffReason(userId) {
   const p = get(userId);
   if (!p.aiConfigured) return 'Claude is not set up on this server';
+  if (!p.aiGlobal) return 'Claude is switched off (questions come from the question bank)';
   if (!p.aiAllowed) return 'Claude is turned off for this account by the parent';
   if (p.ai === false) return 'Claude is turned off in Settings';
   if (p.aiLimitReached) return "Today's Claude limit for this account is used up (it resets tomorrow)";
   return null;
 }
 
-module.exports = { get, set, setAllowed, aiOn, aiOffReason, MINUTES };
+module.exports = { get, set, setAllowed, aiOn, aiOffReason, MINUTES, globalOn, setGlobal };

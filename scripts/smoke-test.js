@@ -30,6 +30,8 @@ const server = app.listen(0, async () => {
     // admin creates a student
     assert.equal((await req('admin', 'POST', '/api/login', { username: 'boss', password: 'adminpass1' })).status, 200);
     assert.equal((await req('admin', 'GET', '/api/plan')).status, 403, 'admin is not a student');
+    assert.equal((await req('admin', 'GET', '/api/admin/overview')).data.aiGlobal, false, 'Claude off for everyone by default');
+    await req('admin', 'PUT', '/api/admin/ai-global', { on: true }); // the tests below exercise Claude (mocked)
     const opts = (await req('admin', 'GET', '/api/admin/options')).data;
     const uptown = opts.schools.find((x) => x.name === 'Uptown International School');
     assert.ok(uptown && opts.schools.some((x) => x.kind === 'family'), 'default school and families group exist');
@@ -265,14 +267,32 @@ const server = app.listen(0, async () => {
     assert.ok(pa.weeks.flatMap((w) => w.days).some((d) => d.kind === 'mock' && /Psychology/.test(d.test || '')), 'test prep before the Psychology summative');
     assert.ok(pa.tests.length === 1 && pa.weeks[1].days[0].color, 'tests and colours sent');
     const mathDay = pa.weeks[1].days.find((d) => d.sub === 'Math AA SL');
+    // Fixed question bank, Claude switched off for everyone
+    await req('admin', 'PUT', '/api/admin/ai-global', { on: false });
     const r11 = await req('ali', 'POST', `/api/runs/${mathDay.skey}/start`, {});
+    await req('admin', 'PUT', '/api/admin/ai-global', { on: true });
     assert.equal(r11.status, 200, JSON.stringify(r11.data));
-    assert.ok(r11.data.mcq.length === 10 && r11.data.written.length === 5, 'Claude fills a DP session (no bank)');
+    assert.ok(r11.data.mcq.length === 10 && r11.data.written.length >= 3, 'DP session filled from the fixed bank: ' + r11.data.mcq.length + '/' + r11.data.written.length);
+    assert.ok(r11.data.mcq.every((x) => /^G11-MA2-h?m\d+$/.test(x.id)) && r11.data.written.every((x) => /^G11-MA2-h?w\d+$/.test(x.id)), 'bank questions, no Claude: ' + r11.data.mcq.map((x) => x.id));
+    assert.ok(db.prepare("SELECT COUNT(*) n FROM questions WHERE set_code = 'CHH3' AND id LIKE 'G11-CHH3-h%'").get().n > 0, 'HL-only questions seeded for HL');
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM questions WHERE set_code = 'CH3' AND id LIKE 'G11-CH3-h%'").get().n, 0, 'no HL-only questions for SL');
     assert.ok(!r11.data.written.some((x) => x.crit), 'no MYP criterion task in DP');
     const q11 = db.prepare('SELECT subject, course_id, set_code FROM questions WHERE id=?').get(r11.data.mcq[0].id);
     assert.ok(q11.subject === 'Math AA SL' && q11.course_id === 'uptown-g11-2026t1' && q11.set_code === 'MA2', JSON.stringify(q11));
     assert.equal((await req('ali', 'GET', '/api/me')).data.course.programme, 'DP');
     assert.equal((await req('ali', 'GET', '/api/topics/MA2/last')).status, 404, 'no Learn topics for this course yet');
+    // Grade 12 DP: fixed banks for every session of a science/maths student, Claude off
+    const G12 = { school_id: uptown.id, programme: 'DP', grade: 12, course_id: 'uptown-g12-2026t1',
+      subjects: [{ group: 'g5', subject: 'Mathematics: analysis and approaches', level: 'HL' }, { group: 'g4', subject: 'Physics', level: 'HL' }, { group: 'g4', subject: 'Chemistry', level: 'SL' }, { group: 'g4', subject: 'Biology', level: 'SL' }] };
+    assert.equal((await req('admin', 'POST', '/api/admin/students', { username: 'sara12', display_name: 'Sara', password: 'studypass1', profile: G12 })).status, 200);
+    await req('g12', 'POST', '/api/login', { username: 'sara12', password: 'studypass1' });
+    await req('admin', 'PUT', '/api/admin/ai-global', { on: false });
+    const p12 = (await req('g12', 'GET', '/api/plan')).data;
+    for (const d of p12.weeks[2].days.filter((x) => x.kind !== 'fix')) {
+      const r = await req('g12', 'POST', `/api/runs/${d.skey}/start`, {});
+      assert.ok(r.status === 200 && r.data.mcq.length === 10 && r.data.written.length >= 3, `G12 ${d.sub} ${d.skey} from the bank: ${JSON.stringify(r.data).slice(0, 200)}`);
+    }
+    await req('admin', 'PUT', '/api/admin/ai-global', { on: true });
     // Amer's Grade 9 plan is unchanged
     assert.equal((await req('s', 'GET', '/api/plan')).data.weeks[0].days[0].sub, 'Math');
 
