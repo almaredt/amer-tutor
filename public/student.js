@@ -123,7 +123,6 @@ async function openSession() {
     <h2>${esc(d.topic)}</h2>
     ${d.test ? `<div class="alert"><strong>Test ahead:</strong> ${esc(d.test)}</div>` : ''}
     ${d.note ? `<div class="alert"><strong>Heads up:</strong> ${esc(d.note)}</div>` : ''}
-    ${d.sub === 'Math' || d.sub === 'Mock' ? bookHtml(d.sets || [], false) : ''}
     <ol class="steps">${(d.sub === 'English' ? STEPS.english : STEPS[d.kind]).map((s) => `<li><span class="t">${s[0]}</span><div><b>${s[1]}</b><p>${esc(s[2])}</p></div></li>`).join('')}</ol>
     <details class="prompt" ${d.kind === 'fix' ? 'hidden' : ''}><summary>${d.kind === 'learn' ? 'Need a lesson first? Ask AMER' : 'Need help with the topic? Ask AMER'}</summary>
       <code id="pt">${esc(lessonPrompt(d))}</code><button class="btn" id="copy">Copy prompt</button></details>
@@ -367,16 +366,6 @@ async function renderLearn() {
   if (!ST.curTopic) ST.curTopic = TOPICS[0].id;
   openTopic(ST.curTopic, true);
 }
-// "In your textbook" box: chapter/section/page pointers to the Math textbook (no book content).
-function bookHtml(ids, full) {
-  if (typeof BOOK === 'undefined') return '';
-  const bs = ids.map((id) => BOOK[id]).filter(Boolean);
-  const refs = bs.flatMap((b) => b.refs), gaps = full ? bs.map((b) => b.gap).filter(Boolean) : [];
-  if (!refs.length && !gaps.length) return '';
-  const li = refs.map(([ch, what, pg]) => `<li><b>Ch ${esc(ch)}</b> · ${esc(what)} <span class="pg">p. ${esc(pg)}</span></li>`).join('');
-  return `<details class="book" ${full ? 'open' : ''}><summary>📖 In your textbook${full ? '' : ` (${refs.length})`}</summary>
-    ${li ? `<ul>${li}</ul>` : ''}${gaps.map((g) => `<p class="note">${esc(g)}</p>`).join('')}<p class="note src">${esc(BOOK_TITLE)}</p></details>`;
-}
 async function openTopic(id, keepScroll) {
   ST.curTopic = id; ST.quiz = null; const t = TOPICS.find((x) => x.id === id); if (!t) return;
   document.querySelectorAll('#tlist [data-t]').forEach((b) => b.classList.toggle('sel', b.dataset.t === id));
@@ -385,7 +374,6 @@ async function openTopic(id, keepScroll) {
     <div class="when"><span class="chip c-${t.subj}">${t.subj}</span><span class="label">${esc(t.unit)}</span></div>
     <h2>${esc(t.title)}</h2>
     <details open><summary>What your school expects you to be able to do</summary><ul class="outc">${t.outcomes.map((o) => `<li>${esc(o)}</li>`).join('')}</ul></details>
-    ${bookHtml([t.id], true)}
     <div class="keyidea"><span class="label">Key idea</span><p>${t.summary}</p></div>
     ${t.sections.map((sc) => `<section class="lsec"><h3>${esc(sc.h)}</h3>${sc.p ? `<p>${sc.p}</p>` : ''}${sc.fig && FIG[sc.fig] ? FIG[sc.fig]() : ''}</section>`).join('')}
     <section class="lsec"><h3>Worked examples</h3>${t.examples.map((e) => `<div class="ex"><b>${esc(e.q)}</b><ol>${e.steps.map((st, j) => `<li class="${j ? 'hid' : ''}">${esc(st)}</li>`).join('')}</ol><div class="row"><button class="btn" data-next>Show next step</button><button class="linkbtn" data-all>Show all steps</button></div></div>`).join('')}</section>
