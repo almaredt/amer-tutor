@@ -1,0 +1,171 @@
+<div dir="rtl">
+
+# راهنمای نصب Amer Tutor روی VPS (اوبونتو ۲۴)
+
+این راهنما قدم‌به‌قدم است. دستورها را یکی‌یکی در SSH سرور اجرا کنید. هر جا `study.example.com` آمده، زیردامنه خودتان را بگذارید.
+
+## قبل از شروع
+
+۱. **یک زیردامنه بسازید:** در پنل DNS دامنه‌تان یک رکورد **A** بسازید، مثلاً `study`، که به IP سرور شما (`162.35.163.244`) اشاره کند.
+
+۲. **پورت‌های ۸۰ و ۴۴۳ را چک کنید.** چون روی این سرور X-UI و WireGuard هم دارید، اول ببینید این پورت‌ها آزادند یا نه:
+
+```bash
+sudo ss -tlnp | grep -E ':80 |:443 '
+```
+
+- اگر خروجی خالی بود، هر دو پورت آزادند و می‌توانید ادامه دهید.
+- اگر X-UI روی ۴۴۳ است، ادامه ندهید و خروجی را برای من بفرستید تا راه درست را بگویم (مثلاً جابه‌جا کردن inbound یا تقسیم ترافیک با SNI).
+
+## ۱. نصب Node.js 22 و nginx
+
+```bash
+sudo apt update
+sudo apt install -y curl ca-certificates nginx build-essential python3
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v   # باید v22 نشان بدهد
+```
+
+## ۲. کپی برنامه روی سرور
+
+فایل `amer-tutor.zip` را از کامپیوتر ویندوزتان به سرور بفرستید. در PowerShell ویندوز:
+
+```powershell
+scp amer-tutor.zip root@162.35.163.244:/tmp/
+```
+
+بعد روی سرور:
+
+```bash
+sudo useradd --system --create-home --home-dir /opt/amer-tutor --shell /usr/sbin/nologin amertutor
+sudo apt install -y unzip
+sudo unzip /tmp/amer-tutor.zip -d /opt/
+sudo chown -R amertutor:amertutor /opt/amer-tutor
+cd /opt/amer-tutor
+sudo -u amertutor npm ci --omit=dev
+sudo -u amertutor mkdir -p data backups
+```
+
+## ۳. تنظیمات (.env)
+
+```bash
+sudo -u amertutor cp .env.example .env
+sudo -u amertutor nano .env
+```
+
+- **کلید API:** جلوی `ANTHROPIC_API_KEY=` کلید API خودتان را از platform.claude.com بگذارید. اگر فعلاً خالی بماند، برنامه فقط با بانک سؤال کار می‌کند.
+- **سقف هزینه:** `AI_MONTHLY_LIMIT_USD=15` یعنی اگر هزینه ماهانه Claude به ۱۵ دلار برسد، قابلیت‌های Claude تا اول ماه بعد متوقف می‌شوند.
+- **ذخیره:** با Ctrl+O ذخیره کنید و با Ctrl+X خارج شوید.
+
+```bash
+sudo chmod 600 .env
+```
+
+## ۴. ساخت حساب ادمین (برای خودتان)
+
+```bash
+sudo -u amertutor npm run create-admin -- ahmad "Ahmad"
+```
+
+برنامه رمز را می‌پرسد. حداقل ۸ کاراکتر وارد کنید. موقع تایپ، رمز با ستاره نمایش داده می‌شود.
+
+## ۵. اجرای دائمی با systemd
+
+```bash
+sudo cp deploy/amer-tutor.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now amer-tutor
+sudo systemctl status amer-tutor --no-pager    # باید active (running) باشد
+curl -s http://127.0.0.1:3100/api/me           # باید {"error":"Please log in."} برگرداند
+```
+
+## ۶. nginx و HTTPS
+
+```bash
+sudo cp deploy/nginx-amer-tutor.conf /etc/nginx/sites-available/amer-tutor
+sudo sed -i 's/study.example.com/study.YOURDOMAIN.com/' /etc/nginx/sites-available/amer-tutor
+sudo ln -s /etc/nginx/sites-available/amer-tutor /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d study.YOURDOMAIN.com
+```
+
+certbot گواهی HTTPS رایگان می‌گیرد و هر ۹۰ روز خودکار تمدیدش می‌کند. اگر فایروال ufw فعال است:
+
+```bash
+sudo ufw allow 'Nginx Full'
+```
+
+## ۷. اولین استفاده
+
+۱. به `https://study.YOURDOMAIN.com/admin` بروید و با حساب ادمین وارد شوید.
+۲. در بخش **Add a student** برای عامر حساب بسازید. مثلاً نام `Amer`، نام کاربری `amer` و یک رمز.
+۳. عامر به `https://study.YOURDOMAIN.com` می‌رود و با همان نام کاربری و رمز وارد می‌شود.
+
+## ۸. پشتیبان‌گیری خودکار (هر شب ساعت ۳)
+
+```bash
+sudo crontab -u amertutor -e
+```
+
+این خط را اضافه کنید:
+
+```
+0 3 * * * cd /opt/amer-tutor && /usr/bin/node --env-file=.env scripts/backup.js >> backups/backup.log 2>&1
+```
+
+۳۰ نسخه آخر در `/opt/amer-tutor/backups` نگه داشته می‌شود. هر چند وقت یک بار یکی از این فایل‌ها را روی کامپیوتر خودتان هم کپی کنید.
+
+## به‌روزرسانی (هر بار که برنامه تغییر کرد)
+
+۱. فایل zip جدید را از PowerShell ویندوز به سرور بفرستید:
+
+```powershell
+scp amer-tutor.zip root@162.35.163.244:/tmp/
+```
+
+۲. روی سرور فقط این یک دستور را اجرا کنید:
+
+```bash
+sudo unzip -o -q /tmp/amer-tutor.zip amer-tutor/scripts/update.sh -d /opt/ && sudo bash /opt/amer-tutor/scripts/update.sh /tmp/amer-tutor.zip
+```
+
+اسکریپت خودش این کارها را انجام می‌دهد:
+
+- از دیتابیس پشتیبان می‌گیرد.
+- از کد فعلی یک نسخه نگه می‌دارد تا اگر مشکلی پیش آمد بشود برگشت.
+- نسخه جدید را باز می‌کند. فایل `.env` و پوشه `data/` دست نمی‌خورند.
+- پکیج‌ها را نصب و برنامه را ری‌استارت می‌کند.
+- چک می‌کند برنامه بالا آمده باشد.
+
+در پایان یا «✓ Updated and running» می‌بینید، یا پیام خطا همراه با دستور برگشت به نسخه قبل. سؤال‌های جدید بانک هنگام ری‌استارت خودکار به دیتابیس اضافه می‌شوند و پیشرفت دانش‌آموزان حفظ می‌شود.
+
+## این نسخه چه دارد
+
+| بخش | توضیح |
+|---|---|
+| برنامه هفتگی | ۷ روز: یکشنبه تا پنجشنبه ریاضی، فیزیک و شیمی؛ جمعه روز اشتباه‌ها؛ شنبه انگلیسی |
+| Learn topics | ۳۱ درس با شکل، مثال قدم‌به‌قدم، اشتباه‌های رایج، «Ask Claude» و آزمون از همان موضوع |
+| بانک سؤال | ۲۶۵ تست و ۹۹ سؤال تشریحی؛ بقیه را Claude Opus 5.5 می‌سازد |
+| پنل ادمین | گزارش هر دانش‌آموز در ۴ درس، موضوع‌های ضعیف، اشتباه‌ها، هزینه Claude |
+
+## دستورهای مفید
+
+| کار | دستور |
+|---|---|
+| دیدن لاگ‌ها | `sudo journalctl -u amer-tutor -f` |
+| ری‌استارت | `sudo systemctl restart amer-tutor` |
+| به‌روزرسانی برنامه | zip جدید را مثل مرحله ۲ باز کنید (`.env` و `data/` دست نمی‌خورند)، بعد `sudo -u amertutor npm ci --omit=dev` و ری‌استارت |
+| تغییر رمز ادمین | `sudo -u amertutor npm run create-admin -- ahmad` |
+
+## اگر مشکلی پیش آمد
+
+| مشکل | راه‌حل |
+|---|---|
+| صفحه باز نمی‌شود | `sudo systemctl status amer-tutor` و `sudo nginx -t` را اجرا کنید و خروجی را بفرستید. |
+| خطای 502 | برنامه اجرا نیست. لاگ را با `journalctl` ببینید. |
+| Claude سؤال نمی‌سازد | کلید API را در `.env` چک کنید، بعد ری‌استارت کنید. در پنل ادمین، کارت «Claude this month» وضعیت را نشان می‌دهد. |
+
+</div>

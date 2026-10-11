@@ -1,0 +1,21 @@
+[Unit]
+Description=Amer Tutor (Node.js)
+After=network.target
+
+[Service]
+Type=simple
+User=amertutor
+Group=amertutor
+WorkingDirectory=/opt/amer-tutor
+ExecStart=/usr/bin/node --env-file=/opt/amer-tutor/.env src/server.js
+Restart=on-failure
+RestartSec=5
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/amer-tutor/data /opt/amer-tutor/backups
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+{
+  "name": "amer-tutor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal IB MYP tutor: study plan, spaced repetition, Claude-powered questions and explanations",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/server.js",
+    "create-admin": "node --env-file=.env scripts/create-admin.js",
+    "test": "node scripts/smoke-test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "bcryptjs": "2.4.3",
+    "better-sqlite3": "11.8.1",
+    "express": "4.21.2"
+  }
+}
