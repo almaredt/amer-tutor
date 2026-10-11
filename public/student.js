@@ -16,6 +16,9 @@ async function boot() {
   try { ST.me = await api('/api/me'); }
   catch (e) { if (e.status === 401) return renderLogin($('root'), (r) => (r.role === 'admin' ? (location.href = '/admin') : boot())); $('root').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   if (ST.me.role === 'admin') { location.href = '/admin'; return; }
+  // Browser tab shows whoever is logged in, e.g. "Mahan's Study Week".
+  const nm = String(ST.me.name || '').trim();
+  document.title = nm ? `${nm}${/s$/i.test(nm) ? "'" : "'s"} Study Week` : 'Study Week';
   await loadPlan(true);
 }
 
