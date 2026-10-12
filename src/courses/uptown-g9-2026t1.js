@@ -71,7 +71,7 @@ function weekPlan(wi) {
     { sub: 'Mistakes', topic: 'Fix the questions still being answered wrong', kind: 'fix', sets: [] },
   ];
   if (wi >= 7) { s[1].kind = 'practice'; s[2].kind = 'practice'; }
-  // School holiday Mon 12 – Fri 16 Oct: keep the sessions so Amer gets ahead of school.
+  // School holiday Mon 12 – Fri 16 Oct: keep the sessions so students get ahead of school.
   if (wi === 0) for (let i = 1; i <= 4; i++) s[i].note = 'School holiday this week. Use it to get ahead: this topic is taught at school after the break.';
   // The Chemistry Unit 2 summative was in the break week, so it probably comes right after: review it on the last holiday day.
   if (wi === 0) s[4] = { sub: 'Chemistry', topic: 'Chemistry Unit 2 review: isotopes, relative atomic mass, electron configuration, ions, balancing', kind: 'mock', sets: ['C1'], test: 'Chemistry Unit 2 summative, probably week of 19 Oct (moved by the break)', note: 'School holiday. Last practice before the Chemistry summative after the break.' };
@@ -87,7 +87,7 @@ function weekPlan(wi) {
   if (wi === 7) s[4] = { sub: 'Mock', topic: 'Full mock: Physics Forces & Motion', kind: 'mock', sets: P, test: 'Physics summative on Mon 30 Nov' };
   if (wi === 8) s[4] = { sub: 'Mock', topic: 'Full mock: Chemistry Structure & Bonding', kind: 'mock', sets: C2_6, test: 'Chemistry summative on Mon 7 Dec' };
   // DrFrost maths homework: set every Friday, due Wednesday (from the Grade 9 maths homework email).
-  if (wi > 0) s[3].note = (s[3].note ? s[3].note + ' ' : '') + 'DrFrost maths homework is due today: Amer does it himself first, then this practice.';
+  if (wi > 0) s[3].note = (s[3].note ? s[3].note + ' ' : '') + 'DrFrost maths homework is due today: do it yourself first, then this practice.';
   s.push({ sub: 'English', ...ENG[wi] });
   return s;
 }
