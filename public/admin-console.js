@@ -100,6 +100,43 @@ async function renderDashboard(){
    ['Tutor approvals',pending.length,'people'],['Lesson requests',requested.length,'bookings'],['Refund reviews',refundsPending.length,'refunds'],['Completed lessons',completed.filter(x=>x.payment_status==='paid').length,'points']
   ].map(([label,n,key])=>'<button data-jump="'+key+'"><span>'+label+'</span><b>'+n+'</b><span>↗</span></button>').join('')+'</section></div>'+
   '<section class="admin-recent"><div class="admin-section-heading"><h3>Recent lessons</h3><button data-jump="bookings">View all ↗</button></div><div class="table-wrap"><table><thead><tr><th>Booking</th><th>Teacher</th><th>Student</th><th>Dubai time</th><th>Points</th><th>Status</th></tr></thead><tbody>'+bookings.slice(0,8).map(b=>'<tr><td>#'+b.id+'</td><td>'+safe(names.get(b.teacher_id)||'Tutor #'+b.teacher_id)+'</td><td>'+safe(names.get(b.student_id)||'Student #'+b.student_id)+'</td><td>'+safe(b.start_at)+'</td><td>'+b.amount_aed+'</td><td><span class="admin-badge">'+safe(b.status)+'</span></td></tr>').join('')+(bookings.length?'':'<tr><td colspan="6">No bookings yet.</td></tr>')+'</tbody></table></div></section>';
+  // Operational tables use the same live records as the KPI overview.
+  const bookingScreen=document.querySelector('.admin-screen[data-screen="bookings"]');
+  if(bookingScreen&&!bookingScreen.querySelector('#adminBookingTable')){
+   const list=node('section','admin-ops-panel');list.id='adminBookingTable';
+   list.innerHTML='<div class="admin-section-heading"><h3>All lesson bookings</h3><label>Status <select id="adminBookingFilter"><option value="">All statuses</option><option>requested</option><option>confirmed</option><option>completed</option><option>cancelled</option></select></label></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Parent</th><th>Student</th><th>Teacher</th><th>Dubai time</th><th>Duration</th><th>Points</th><th>Status</th><th>Transfer</th></tr></thead><tbody id="adminBookingRows"></tbody></table></div>';
+   bookingScreen.prepend(list);
+   // Hide the old text-only booking listing without removing the existing API actions.
+   const legacy=bookingScreen.querySelector('.admin-ops-panel:not(#adminBookingTable)');if(legacy)legacy.hidden=true;
+   function drawBookings(){
+    const filter=list.querySelector('#adminBookingFilter').value;
+    const rows=bookings.filter(b=>!filter||b.status===filter);
+    list.querySelector('#adminBookingRows').innerHTML=rows.map(b=>'<tr><td>#'+b.id+'</td><td>'+safe(names.get(b.parent_id)||'Parent #'+b.parent_id)+'</td><td>'+safe(names.get(b.student_id)||'Student #'+b.student_id)+'</td><td>'+safe(names.get(b.teacher_id)||'Teacher #'+b.teacher_id)+'</td><td>'+safe(b.start_at)+'</td><td>'+b.minutes+' min</td><td>'+b.amount_aed+'</td><td><span class="admin-badge">'+safe(b.status)+'</span></td><td>'+safe(b.payment_status)+'</td></tr>').join('')+(rows.length?'':'<tr><td colspan="9">No matching lessons.</td></tr>');
+   }
+   list.querySelector('#adminBookingFilter').onchange=drawBookings;drawBookings();
+  }
+  const peopleScreen=document.querySelector('.admin-screen[data-screen="people"]');
+  if(peopleScreen&&!peopleScreen.querySelector('#adminAccountSearch')){
+   const search=document.createElement('label');search.className='admin-search-label';search.textContent='Search teacher or parent';
+   search.innerHTML='<span>Search teachers and parents</span><input type="search" id="adminAccountSearch" placeholder="Name or role…">';
+   peopleScreen.prepend(search);
+   search.querySelector('input').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase().trim();
+    peopleScreen.querySelectorAll('tbody tr').forEach(tr=>{tr.hidden=!tr.textContent.toLowerCase().includes(q);});
+   });
+   const parentInput=peopleScreen.querySelector('#grantPoints input[name="parent_id"]');
+   if(parentInput){
+    const select=document.createElement('select');select.name='parent_id';select.required=true;
+    select.innerHTML='<option value="">Select a parent</option>'+parents.map(p=>'<option value="'+p.id+'">'+safe(p.display_name)+' (#'+p.id+')</option>').join('');
+    // Point grant form lives on the Points tab, not People.
+   }
+  }
+  const grant=document.querySelector('.admin-screen[data-screen="points"] #grantPoints input[name="parent_id"]');
+  if(grant){
+   const select=document.createElement('select');select.name='parent_id';select.required=true;
+   select.innerHTML='<option value="">Select a parent</option>'+parents.map(p=>'<option value="'+p.id+'">'+safe(p.display_name)+' (#'+p.id+')</option>').join('');
+   grant.replaceWith(select);
+  }
   dash.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>tab(b.dataset.jump));
   const legacy=target.querySelector(':scope > header, :scope > .tiles');if(legacy){target.querySelector(':scope > header')?.classList.add('admin-legacy');target.querySelector(':scope > .tiles')?.classList.add('admin-legacy');}
  }catch(e){dash.innerHTML='<p class="admin-error">Dashboard metrics unavailable: '+safe(e.message)+'</p>';}
