@@ -143,6 +143,14 @@ const server = app.listen(0, async () => {
     const mkj = await fetch(base + '/mathkeys.js'); assert.equal(mkj.status, 200, 'symbol keys script served');
     assert.ok((await (await fetch(base + '/study')).text()).includes('/mathkeys.js'), 'student page loads symbol keys');
 
+    for(const route of ['/','/login','/study','/portal','/admin']){
+      const page=await (await fetch(base+route)).text();
+      assert.ok(page.includes('/theme-dark.css'),route+' loads shared dark theme');
+      assert.ok(page.includes('/theme-control.js'),route+' loads shared theme toggle');
+    }
+    const darkCSS=await (await fetch(base+'/theme-dark.css')).text();
+    assert.ok(darkCSS.includes('prefers-color-scheme:dark')&&darkCSS.includes('data-theme="dark"'),'automatic and manual dark modes supported');
+    assert.ok(darkCSS.includes('.q .opt:disabled'),'disabled answer contrast is explicitly protected');
     const landing = await (await fetch(base + '/')).text();
     assert.ok(landing.includes('LEARN') && landing.includes('/login'), 'public landing page available');
     assert.ok((await (await fetch(base + '/login')).text()).includes('loginRoot'), 'dedicated login page available');
