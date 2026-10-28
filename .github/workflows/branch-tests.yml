@@ -17,6 +17,9 @@ jobs:
       - name: Syntax checks
         run: |
           node --check src/server.js
+          node --check src/demo-avatars.js
+          node --check public/admin-console.js
+          node --check public/public-tutors.js
           node --check src/db.js
           node --check src/ai.js
           node --check src/payments.js
