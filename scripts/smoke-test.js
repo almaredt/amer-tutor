@@ -151,6 +151,16 @@ const server = app.listen(0, async () => {
     const darkCSS=await (await fetch(base+'/theme-dark.css')).text();
     assert.ok(darkCSS.includes('prefers-color-scheme:dark')&&darkCSS.includes('data-theme="dark"'),'automatic and manual dark modes supported');
     assert.ok(darkCSS.includes('.q .opt:disabled'),'disabled answer contrast is explicitly protected');
+    const directory=await fetch(base+'/tutors');
+    assert.equal(directory.status,200,'public tutor directory accessible without login');
+    const directoryHTML=await directory.text();
+    assert.ok(directoryHTML.includes('/public-tutors.js'),'public tutor discovery UI loads');
+    const demoAvatar=await fetch(base+'/demo-avatar/aisyah.svg');
+    assert.equal(demoAvatar.status,200,'illustrated avatar available locally');
+    assert.ok((await demoAvatar.text()).includes('<svg'),'avatar is SVG');
+    assert.equal((await fetch(base+'/demo-avatar/unknown.svg')).status,404,'unknown avatar is not exposed');
+    const adminPage=await (await fetch(base+'/admin')).text();
+    assert.ok(adminPage.includes('/admin-console.js')&&adminPage.includes('/admin-console.css'),'professional admin shell loaded');
     const publicTutors=await (await fetch(base+'/api/public/teachers')).json();
     assert.ok(Array.isArray(publicTutors),'public directory is an array');
     assert.ok(publicTutors.every(t=>!('username' in t)&&!('password_hash' in t)),'no private teacher account fields in directory');
