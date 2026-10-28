@@ -249,6 +249,11 @@ app.post('/api/parent/bookings',P,(req,res)=>{
  const id=db.prepare('INSERT INTO lesson_bookings(parent_id,student_id,teacher_id,start_at,minutes,amount_aed) VALUES(?,?,?,?,?,?)').run(req.user.id,sid,tid,b.start_at,minutes,amount).lastInsertRowid;
  res.status(201).json({id,status:'requested',amount_aed:amount,payment_status:'unpaid'});
 });
+app.post('/api/parent/bookings/:id/cancel',P,(req,res)=>{
+ const result=db.prepare("UPDATE lesson_bookings SET status='cancelled' WHERE id=? AND parent_id=? AND status IN ('requested','confirmed') AND payment_status='unpaid'").run(Number(req.params.id),req.user.id);
+ if(!result.changes)return res.status(409).json({error:'Booking cannot be cancelled here. Contact support for paid bookings.'});
+ res.json({ok:true});
+});
 app.post('/api/teacher/bookings/:id/confirm',T,(req,res)=>{
  const row=db.prepare('SELECT id FROM lesson_bookings WHERE id=? AND teacher_id=? AND status=?').get(Number(req.params.id),req.user.id,'requested');
  if(!row)return res.status(409).json({error:'Booking not available for confirmation.'});
