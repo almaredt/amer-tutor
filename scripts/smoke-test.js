@@ -359,6 +359,8 @@ const server = app.listen(0, async () => {
     assert.equal((await fetch(base+'/webhooks/stripe',{method:'POST',headers:{'Content-Type':'application/json','stripe-signature':'t='+ts+',v1='+sig},body:payload})).status,200,'accept signed paid event');
     assert.equal((await req('parent','GET','/api/parent/bookings')).data[0].payment_status,'paid');
     assert.equal((await req('teacher','GET','/api/teacher/earnings')).data[0].amount_aed,85,'15% platform commission');
+    assert.equal((await fetch(base+'/webhooks/stripe',{method:'POST',headers:{'Content-Type':'application/json','stripe-signature':'t='+ts+',v1='+sig},body:payload})).status,200,'duplicate signed event acknowledged');
+    assert.equal((await req('teacher','GET','/api/teacher/earnings')).data.length,1,'duplicate event cannot create duplicate payout');
     assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,409,'cannot pay teacher before lesson completion');
     db.prepare('UPDATE lesson_bookings SET start_at=? WHERE id=?').run('2020-01-01T10:00',booking.id);
     assert.equal((await req('teacher','POST','/api/teacher/bookings/'+booking.id+'/complete',{})).status,200);
