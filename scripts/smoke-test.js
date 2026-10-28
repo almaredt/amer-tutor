@@ -367,6 +367,10 @@ const server = app.listen(0, async () => {
     assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,200);
     assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,409,'payout is idempotent');
 
+    const cancelReq=await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:45,start_at:'2099-12-15T16:00'});
+    assert.equal(cancelReq.status,201);
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+cancelReq.data.id+'/cancel',{})).status,200);
+    assert.equal((await req('parent','GET','/api/parent/bookings')).data.find(x=>x.id===cancelReq.data.id).status,'cancelled');
     assert.deepEqual(db.pragma('foreign_key_check'),[],'foreign keys valid after role migration');
 
     // pages served with security headers
