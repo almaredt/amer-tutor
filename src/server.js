@@ -10,6 +10,7 @@ const profiles = require('./profiles');
 const { SUBJ } = require('./plan');
 
 const points = require('./points');
+const refunds = require('./refund-points');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY === '0' ? false : 1); // behind nginx
@@ -258,6 +259,17 @@ app.post('/api/teacher/bookings/:id/complete',T,(req,res)=>{
  if(Date.parse(booking.start_at+'+04:00')+booking.minutes*60000>Date.now())return res.status(409).json({error:'Lesson has not ended.'});
  db.prepare("UPDATE lesson_bookings SET status='completed' WHERE id=?").run(booking.id);
  res.json({ok:true});
+});
+app.get('/api/parent/refunds',P,(req,res)=>res.json(refunds.parentRequests(req.user.id)));
+app.post('/api/parent/bookings/:id/refund',P,(req,res)=>{
+ try{res.status(201).json(refunds.request(req.user.id,Number(req.params.id),req.body?.reason));}
+ catch(e){res.status(409).json({error:e.message});}
+});
+app.get('/api/admin/refunds',A,(req,res)=>res.json(refunds.allRequests()));
+app.post('/api/admin/refunds/:id/decision',A,(req,res)=>{
+ if(typeof req.body?.approve!=='boolean')return res.status(400).json({error:'approve must be boolean'});
+ try{res.json(refunds.decide(req.user.id,Number(req.params.id),req.body.approve));}
+ catch(e){res.status(409).json({error:e.message});}
 });
 app.get('/api/points/me',auth.requireUser,(req,res)=>res.json({balance:points.balance(req.user.id),history:points.history(req.user.id),unit:'points'}));
 app.post('/api/admin/points/grant',A,(req,res)=>{
