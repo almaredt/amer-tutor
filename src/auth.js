@@ -54,6 +54,8 @@ function loadUser(req, _res, next) {
 
 const requireUser = (req, res, next) => (req.user ? next() : res.status(401).json({ error: 'Please log in.' }));
 const requireStudent = (req, res, next) => (req.user && req.user.role === 'student' ? next() : res.status(req.user ? 403 : 401).json({ error: 'Students only.' }));
+const requireTeacher = (req, res, next) => (req.user && req.user.role === 'teacher' ? next() : res.status(req.user ? 403 : 401).json({ error: 'Teachers only.' }));
+const requireParent = (req, res, next) => (req.user && req.user.role === 'parent' ? next() : res.status(req.user ? 403 : 401).json({ error: 'Parents only.' }));
 const requireAdmin = (req, res, next) => (req.user && req.user.role === 'admin' ? next() : res.status(req.user ? 403 : 401).json({ error: 'Admins only.' }));
 
 // Simple in-memory login throttle: 10 failed tries per IP per 15 minutes.
@@ -83,4 +85,4 @@ const hashPassword = (p) => bcrypt.hashSync(p, 12);
 // Clean expired sessions once an hour.
 setInterval(() => db.prepare('DELETE FROM auth_sessions WHERE expires_at < ?').run(Date.now()), 3600e3).unref();
 
-module.exports = { loadUser, requireUser, requireStudent, requireAdmin, createSession, destroySession, loginAllowed, loginFailed, checkPassword, validPassword, validUsername, hashPassword };
+module.exports = { loadUser, requireUser, requireStudent, requireTeacher, requireParent, requireAdmin, createSession, destroySession, loginAllowed, loginFailed, checkPassword, validPassword, validUsername, hashPassword };
