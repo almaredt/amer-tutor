@@ -141,8 +141,13 @@ const server = app.listen(0, async () => {
     assert.ok((await req('s', 'GET', '/api/topics/stats')).status === 200);
     const lj = await fetch(base + '/learn.js'); assert.equal(lj.status, 200);
     const mkj = await fetch(base + '/mathkeys.js'); assert.equal(mkj.status, 200, 'symbol keys script served');
-    assert.ok((await (await fetch(base + '/')).text()).includes('/mathkeys.js'), 'student page loads symbol keys');
+    assert.ok((await (await fetch(base + '/study')).text()).includes('/mathkeys.js'), 'student page loads symbol keys');
 
+    const landing = await (await fetch(base + '/')).text();
+    assert.ok(landing.includes('LEARN') && landing.includes('/login'), 'public landing page available');
+    assert.ok((await (await fetch(base + '/login')).text()).includes('loginRoot'), 'dedicated login page available');
+    assert.ok((await (await fetch(base + '/portal')).text()).includes('availability-calendar.js'), 'calendar script linked');
+    assert.ok((await (await fetch(base + '/admin')).text()).includes('admin-theme.css'), 'admin theme linked');
     // a session built from an older plan (other subject) is rebuilt
     const uid = db.prepare("SELECT id FROM users WHERE username='amer'").get().id;
     const chemQ = db.prepare("SELECT id FROM questions WHERE subject='Chemistry' AND type='m' LIMIT 1").get().id;
