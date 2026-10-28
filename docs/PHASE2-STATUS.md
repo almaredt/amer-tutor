@@ -14,7 +14,7 @@
 Set `OPENAI_API_KEY`. For payments, set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `PUBLIC_BASE_URL` to the public HTTPS origin. Register a Stripe webhook pointing to `/webhooks/stripe` for `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Configure merchant account, currencies, return URLs, local licensing and refund policies before collecting real funds. No live keys are stored in GitHub.
 
 ## Known gaps and release blockers
-- **Not tested in a running environment here.** GitHub Actions workflow `.github/workflows/branch-tests.yml` and extended `npm test` smoke tests have been committed. Confirm CI passes; inspect logs and resolve failures.
+- **Automated CI passed:** GitHub Actions run 40750175915 completed the Node 22 installation, syntax checks and expanded `npm test` regression suite successfully. This is a throwaway database test, **not** a production-data migration or live payment test.
 - Verify SQLite role-constraint migration and FK integrity against a **copy** of existing production data, with a tested backup/rollback procedure.
 - Refunds, disputes, cancellations after payment, reconciliation of provider fees, audit logs and automated notifications are not finished. **Do not activate live payments until these are handled.**
 - Weekly availability is a simple recurring calendar; exceptions/holidays/time-zone edge cases and rescheduling remain.
