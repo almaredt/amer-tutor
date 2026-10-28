@@ -156,6 +156,12 @@ const validId = (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0;
 const linked = (teacher, student) => !!db.prepare('SELECT 1 FROM teacher_students WHERE teacher_id=? AND student_id=?').get(teacher, student);
 const parentOf = (parent, student) => !!db.prepare('SELECT 1 FROM parent_students WHERE parent_id=? AND student_id=?').get(parent, student);
 const publicTeacher = (u) => ({ ...u, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages) });
+// Public catalogue contains only admin-approved tutor profile fields; never expose contact details.
+app.get('/api/public/teachers',(req,res)=>{
+ const rows=db.prepare(`SELECT u.id,u.display_name,t.bio,t.subjects,t.grades,t.curricula,t.languages,t.rate_45_aed,t.rate_60_aed
+ FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.approved=1 AND u.active=1 AND u.role='teacher' ORDER BY u.display_name LIMIT 100`).all();
+ res.json(rows.map(publicTeacher));
+});
 app.get('/api/teachers', auth.requireUser, (req, res) => res.json(db.prepare(`SELECT u.id, u.display_name, t.bio, t.subjects, t.grades, t.curricula, t.languages, t.rate_45_aed, t.rate_60_aed
   FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.approved=1 AND u.active=1 AND u.role='teacher' ORDER BY u.display_name`).all().map(publicTeacher)));
 app.get('/api/teachers/:id/calendar',auth.requireUser,(req,res)=>{
