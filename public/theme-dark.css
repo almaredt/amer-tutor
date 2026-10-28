@@ -105,3 +105,12 @@
  :root:not([data-theme="light"]) :is(.q .fb b,.q .fb strong){color:inherit!important}
  :root:not([data-theme="light"]) :is(.q .opt:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible){outline:3px solid #a7c8ff!important}
 }
+
+/* Always legible disabled MCQ choices (Chromium/WebKit native disabled text). */
+.q .opt:disabled{-webkit-text-fill-color:currentColor!important;opacity:1!important}
+.site-theme-switch{position:fixed!important;right:18px;bottom:18px;z-index:9000;padding:11px 16px!important;font:800 12px "JetBrains Mono",monospace!important;border:2px solid var(--border-strong)!important;border-radius:0!important;background:var(--surface)!important;color:var(--text-primary)!important;box-shadow:4px 4px 0 var(--shadow-ink)!important;min-width:96px}
+.site-theme-switch:hover{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--shadow-ink)!important}
+.site-theme-switch:focus-visible{outline:3px solid var(--accent)!important;outline-offset:4px}
+:root[data-theme="dark"] .site-theme-switch{background:var(--surface)!important;color:var(--text-primary)!important}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .site-theme-switch{background:var(--surface)!important;color:var(--text-primary)!important}}
+@media(max-width:650px){.site-theme-switch{right:12px;bottom:12px;padding:9px 11px!important;font-size:11px!important}}
