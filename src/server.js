@@ -158,6 +158,13 @@ const parentOf = (parent, student) => !!db.prepare('SELECT 1 FROM parent_student
 const publicTeacher = (u) => ({ ...u, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages) });
 app.get('/api/teachers', auth.requireUser, (req, res) => res.json(db.prepare(`SELECT u.id, u.display_name, t.bio, t.subjects, t.grades, t.curricula, t.languages, t.rate_45_aed, t.rate_60_aed
   FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.approved=1 AND u.active=1 AND u.role='teacher' ORDER BY u.display_name`).all().map(publicTeacher)));
+app.get('/api/teachers/:id/calendar',auth.requireUser,(req,res)=>{
+ const id=Number(req.params.id),duration=Number(req.query.duration||45);
+ if(!validId(id)||![45,60].includes(duration))return res.status(400).json({error:'Invalid teacher or duration.'});
+ const approved=db.prepare("SELECT 1 FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND t.approved=1 AND u.active=1").get(id);
+ if(!approved)return res.status(404).json({error:'Teacher not found.'});
+ res.json(bookingCalendar.get(id,duration));
+});
 app.get('/api/teacher/availability',T,(req,res)=>res.json(db.prepare('SELECT weekday,start_time,end_time FROM teacher_availability WHERE teacher_id=? ORDER BY weekday,start_time').all(req.user.id)));
 app.put('/api/teacher/availability',T,(req,res)=>{
  const slots=req.body&&req.body.slots;
