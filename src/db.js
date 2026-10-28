@@ -124,25 +124,27 @@ CREATE TABLE IF NOT EXISTS ai_log (
 );
 `);
 
-// Expand legacy role CHECK safely, preserving user IDs and all related rows.
-// SQLite cannot ALTER a CHECK constraint in place. Disable FK checks only for this
-// isolated table rebuild, then verify referential integrity before accepting it.
-if (!db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get().sql.includes("'teacher'")) {
-  const columns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
-  const create = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get().sql;
-  const expanded = create.replace("role IN ('admin','student')", "role IN ('admin','student','teacher','parent')").replace(/CREATE TABLE IF NOT EXISTS users/i, 'CREATE TABLE users_new');
-  if (expanded === create || !expanded.includes('users_new')) throw new Error('Unexpected users schema; cannot migrate roles safely');
+// Expand the role constraint without rebuilding the users table: preserve all FKs,
+// indexes and session relationships. Writable schema changes are not safe here;
+// use a versioned shadow migration in maintenance mode instead.
+const userDDL = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get().sql;
+if (!userDDL.includes("'teacher'")) {
   db.pragma('foreign_keys = OFF');
   try {
     db.transaction(() => {
-      db.exec(expanded);
-      const cols = columns.map((c) => '"' + c.replace(/"/g, '""') + '"').join(',');
-      db.exec('INSERT INTO users_new (' + cols + ') SELECT ' + cols + ' FROM users');
-      db.exec('DROP TABLE users');
-      db.exec('ALTER TABLE users_new RENAME TO users');
+      const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get().sql;
+      const expanded = ddl.replace("role IN ('admin','student')", "role IN ('admin','student','teacher','parent')");
+      if (expanded === ddl) throw new Error('Unexpected users role constraint');
+      db.pragma('writable_schema = ON');
+      try {
+        db.prepare("UPDATE sqlite_master SET sql=? WHERE type='table' AND name='users'").run(expanded);
+      } finally { db.pragma('writable_schema = OFF'); }
     })();
   } finally { db.pragma('foreign_keys = ON'); }
-  if (db.pragma('foreign_key_check').length) throw new Error('Foreign key integrity failed after role migration');
+  db.pragma('writable_schema = OFF');
+  db.pragma('schema_version = ' + (db.pragma('schema_version', { simple: true }) + 1));
+  if (db.pragma('integrity_check', { simple: true }) !== 'ok' || db.pragma('foreign_key_check').length)
+    throw new Error('Role migration integrity check failed');
 }
 
 // ---------- multi-school: schools, study profile on users, course on questions ----------
