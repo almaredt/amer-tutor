@@ -265,6 +265,25 @@ CREATE TABLE IF NOT EXISTS teacher_availability (
 );
 `);
 
+
+// Non-redeemable demo points. All balance changes are atomic.
+db.exec(`
+CREATE TABLE IF NOT EXISTS point_wallets (
+ user_id INTEGER PRIMARY KEY REFERENCES users(id),
+ balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0)
+);
+CREATE TABLE IF NOT EXISTS point_movements (
+ id INTEGER PRIMARY KEY,
+ booking_id INTEGER REFERENCES lesson_bookings(id),
+ from_user INTEGER REFERENCES users(id),
+ to_user INTEGER REFERENCES users(id),
+ points INTEGER NOT NULL CHECK(points > 0),
+ kind TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_point_booking_kind ON point_movements(booking_id,kind) WHERE booking_id IS NOT NULL;
+`);
+
 // Seed / refresh the hand-written bank (fixes in question-bank.js reach the DB on restart).
 function seedBank() {
   const upsert = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, course_id)
