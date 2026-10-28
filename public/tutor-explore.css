@@ -101,3 +101,10 @@ html{scroll-behavior:smooth}body.tutor-public{margin:0;background:var(--tx-bg)!i
 @media(max-width:1150px){.tx-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.tx-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.tx-profile-grid{grid-template-columns:minmax(0,1fr)}.tx-booking{position:static}}
 @media(max-width:770px){.tx-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.tx-wrap{padding:28px 15px 65px}.tx-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.tx-profile-intro{grid-template-columns:1fr}.tx-profile-portrait{max-width:320px}.tx-nav-links{gap:0}.tx-nav-links a{padding:8px;font-size:12px}}
 @media(max-width:470px){.tx-grid{grid-template-columns:1fr}.tx-filters{grid-template-columns:1fr}.tx-profile-main,.tx-booking{padding:14px}.tx-date-rail{grid-template-columns:32px repeat(5,minmax(0,1fr)) 32px;gap:3px}.tx-date-rail button{font-size:9px;min-height:62px}.tx-date-rail button strong{font-size:14px}.tx-slot-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.tx-checks{grid-template-columns:1fr}}
+
+/* Shared theme selector, fixed within viewport without disturbing card layout. */
+.site-theme-switch{position:fixed;right:18px;bottom:18px;z-index:9000;padding:12px 16px;border:2px solid var(--tx-line);border-radius:0;background:var(--tx-panel);color:var(--tx-ink);box-shadow:var(--tx-shadow);font:900 12px "JetBrains Mono",monospace;cursor:pointer}
+.site-theme-switch:hover{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--tx-line)}
+.tx-thumbs button:nth-child(2) img{filter:saturate(.8) contrast(1.07)}
+.tx-thumbs button:nth-child(3) img{filter:hue-rotate(-12deg)}
+.tx-thumbs button:nth-child(4) img{filter:saturate(1.2)}
