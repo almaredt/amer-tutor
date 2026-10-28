@@ -49,5 +49,7 @@
   });
   const id=new URLSearchParams(location.search).get('teacher');
   if(id){const button=el.querySelector('[data-profile="'+Number(id)+'"]');if(button)button.click();}
+  // The reference layout shows a usable calendar alongside the selected profile immediately.
+  el.querySelector('#marketBook')?.click();
  }catch(e){el.textContent=e.message;}
 })();
