@@ -71,3 +71,10 @@
 @media(max-width:650px){.lesson-agenda-card{align-items:flex-start;flex-wrap:wrap}.lesson-actions{width:100%}}
 
 .portal #content>section[hidden]{display:none!important}
+
+.market-portrait img{width:100%;height:100%;object-fit:cover;display:block}
+.market-portrait:has(img){position:relative}
+.market-portrait:has(img) small{position:absolute;bottom:8px;right:8px;padding:5px;background:var(--surface,#fff);color:var(--text-primary,#111);border:1px solid var(--border-strong,#111)}
+.market-profile-avatar img{width:100%;height:100%;object-fit:cover}
+.person-card-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.person-demo-avatar,.person-initial{display:grid;place-items:center;flex:0 0 56px;width:56px;height:56px;object-fit:cover;border:2px solid var(--border-strong,#111);background:var(--surface-blue,#eaf1ff);color:var(--text-primary,#111);font-weight:900;font-size:24px}
