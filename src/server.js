@@ -9,6 +9,7 @@ const courses = require('./courses');
 const profiles = require('./profiles');
 const { SUBJ } = require('./plan');
 
+const payments = require('./payments');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY === '0' ? false : 1); // behind nginx
@@ -19,6 +20,15 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   next();
+});
+// Payment webhooks use the raw request body for signature verification.
+app.post('/webhooks/stripe',express.raw({type:'application/json',limit:'128kb'}),(req,res)=>{
+ try{
+  const event=payments.verifiedEvent(req.body,req.get('stripe-signature'));
+  if(!event)return res.status(400).send('Invalid signature');
+  payments.recordPayment(event);
+  res.json({received:true});
+ }catch(e){console.error('Stripe webhook error:',e);res.status(500).send('Webhook failed');}
 });
 // Small JSON bodies everywhere, except photo uploads of handwritten working.
 const jsonSmall = express.json({ limit: '64kb' }), jsonPhoto = express.json({ limit: '4mb' });
