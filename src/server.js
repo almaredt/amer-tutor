@@ -242,6 +242,13 @@ app.post('/api/teacher/bookings/:id/confirm',T,(req,res)=>{
  db.prepare('UPDATE lesson_bookings SET status=? WHERE id=?').run('confirmed',row.id);
  res.json({ok:true,status:'confirmed'});
 });
+app.post('/api/teacher/bookings/:id/complete',T,(req,res)=>{
+ const booking=db.prepare("SELECT * FROM lesson_bookings WHERE id=? AND teacher_id=? AND status='confirmed' AND payment_status='paid'").get(Number(req.params.id),req.user.id);
+ if(!booking)return res.status(409).json({error:'Only confirmed, paid lessons can be completed.'});
+ if(Date.parse(booking.start_at+'+04:00')+booking.minutes*60000>Date.now())return res.status(409).json({error:'Lesson has not ended.'});
+ db.prepare("UPDATE lesson_bookings SET status='completed' WHERE id=?").run(booking.id);
+ res.json({ok:true});
+});
 app.post('/api/parent/bookings/:id/checkout',P,wrap(async(req,res)=>{
  const booking=db.prepare('SELECT * FROM lesson_bookings WHERE id=? AND parent_id=?').get(Number(req.params.id),req.user.id);
  if(!booking)return res.status(404).json({error:'Booking not found.'});
