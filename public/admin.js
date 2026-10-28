@@ -2,8 +2,8 @@
 async function boot() {
   let me;
   try { me = await api('/api/me'); }
-  catch (e) { if (e.status === 401) return renderLogin($('root'), (r) => (r.role === 'admin' ? boot() : (location.href = '/')), true); $('root').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
-  if (me.role !== 'admin') { location.href = '/'; return; }
+  catch (e) { if (e.status === 401) return renderLogin($('root'), (r) => (r.role === 'admin' ? boot() : (location.href = '/study')), true); $('root').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  if (me.role !== 'admin') { location.href = '/study'; return; }
   $('root').innerHTML = `<div class="topbar"><div class="label">Tutor admin</div><div class="who">${esc(me.name)} · <button class="linkbtn" id="outBtn">Log out</button></div></div><div id="view" class="section"></div>`;
   $('outBtn').onclick = logout;
   overview();
