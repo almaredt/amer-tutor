@@ -12,6 +12,7 @@ const { SUBJ } = require('./plan');
 const points = require('./points');
 const refunds = require('./refund-points');
 const progressInsights = require('./progress-insights');
+const bookingCalendar = require('./booking-calendar');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY === '0' ? false : 1); // behind nginx
