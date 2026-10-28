@@ -387,6 +387,11 @@ const server = app.listen(0, async () => {
     assert.equal(calendar.status,200,'parent can view teacher calendar');
     assert.equal(calendar.data.days.length,14,'two weeks of dates');
     assert.equal(calendar.data.timezone,'Asia/Dubai');
+    const adminAnalytics=await req('admin','GET','/api/admin/analytics');
+    assert.equal(adminAnalytics.status,200,'admin analytics available');
+    assert.ok(Array.isArray(adminAnalytics.data.users_by_day)&&Array.isArray(adminAnalytics.data.lesson_subjects));
+    assert.ok(Array.isArray(adminAnalytics.data.points_by_month)&&Array.isArray(adminAnalytics.data.recent_users));
+    assert.equal((await req('parent','GET','/api/admin/analytics')).status,403,'analytics restricted to admin');
     const publicCalendar=await req('x','GET','/api/public/teachers/'+tid+'/calendar?duration=45');
     assert.equal(publicCalendar.status,200,'public visitor can browse available lesson times');
     assert.equal(publicCalendar.data.days.length,14);
