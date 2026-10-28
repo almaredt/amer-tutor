@@ -161,6 +161,11 @@ const server = app.listen(0, async () => {
     assert.equal((await fetch(base+'/demo-avatar/unknown.svg')).status,404,'unknown avatar is not exposed');
     const adminPage=await (await fetch(base+'/admin')).text();
     assert.ok(adminPage.includes('/admin-console.js')&&adminPage.includes('/admin-console.css'),'professional admin shell loaded');
+    const marketJS=await (await fetch(base+'/tutor-marketplace.js')).text();
+    assert.ok(marketJS.includes('market-profile-tabs')&&marketJS.includes('market-profile-rates'),'tutor profile has reference-style detail panel');
+    const adminCSS=await (await fetch(base+'/admin-console.css')).text();
+    assert.ok(adminCSS.includes('grid-template-columns:252px')&&adminCSS.includes('admin-nav button.active'),'admin sidebar and full-width screens styled');
+
     const publicTutors=await (await fetch(base+'/api/public/teachers')).json();
     assert.ok(Array.isArray(publicTutors),'public directory is an array');
     assert.ok(publicTutors.every(t=>!('username' in t)&&!('password_hash' in t)),'no private teacher account fields in directory');
@@ -382,6 +387,11 @@ const server = app.listen(0, async () => {
     assert.equal(calendar.status,200,'parent can view teacher calendar');
     assert.equal(calendar.data.days.length,14,'two weeks of dates');
     assert.equal(calendar.data.timezone,'Asia/Dubai');
+    const publicCalendar=await req('x','GET','/api/public/teachers/'+tid+'/calendar?duration=45');
+    assert.equal(publicCalendar.status,200,'public visitor can browse available lesson times');
+    assert.equal(publicCalendar.data.days.length,14);
+    assert.equal((await req('x','GET','/api/public/teachers/'+tid+'/calendar?duration=15')).status,400);
+
     assert.equal((await req('x','GET','/api/teachers/'+tid+'/calendar?duration=45')).status,401);
     assert.equal((await req('parent','GET','/api/teachers/'+tid+'/calendar?duration=120')).status,400);
 
