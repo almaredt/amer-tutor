@@ -4,3 +4,27 @@ body{margin:0;background:var(--bg,#f9fbff);color:var(--ink,#111)}.public-tutor-n
 /* Public discovery uses the same reference layout, with four compact cards left of the profile. */
 @media(min-width:1320px){.public-tutors-main{max-width:1660px}.public-tutors-main #tutorMarketplace{grid-template-columns:minmax(0,1fr) 375px}.public-tutors-main #tutorMarketplace>.market-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(min-width:900px) and (max-width:1319px){.public-tutors-main #tutorMarketplace>.market-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Public 14-day booking picker, aligned with the screenshot's right-hand rail. */
+#tutorMarketplace #publicAvailability{padding:15px;margin-top:15px;box-shadow:4px 4px 0 var(--shadow-ink,#111);border:2px solid var(--border-strong,#111)}
+.public-calendar-head{display:flex;justify-content:space-between;align-items:baseline;gap:9px}
+.public-calendar-head h3{font:900 17px Sora,sans-serif;margin:0 0 12px}
+.public-calendar-head small{font:700 10px "JetBrains Mono",monospace;color:var(--text-secondary,#555)}
+.public-duration{display:flex;gap:8px;margin-bottom:13px}
+.public-duration button{flex:1;min-width:0;box-shadow:2px 2px 0 var(--shadow-ink,#111)!important;border:2px solid var(--border-strong,#111)!important;background:var(--surface,#fff)!important;color:var(--text-primary,#111)!important;padding:9px 5px;font-weight:900}
+.public-duration button.selected{background:var(--accent,#2f5fb8)!important;color:var(--accent-text,#fff)!important}
+.public-cal-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;overflow-x:auto;margin:0 0 18px;min-height:67px}
+.public-cal-days button{min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 1px!important;min-height:64px;box-shadow:none!important;border:1.5px solid var(--border-strong,#111)!important;background:var(--surface,#fff)!important;color:var(--text-primary,#111)!important}
+.public-cal-days button span,.public-cal-days button small{font:800 10px "Atkinson Hyperlegible",sans-serif}
+.public-cal-days button strong{font:900 17px Sora,sans-serif}
+.public-cal-days button.selected{background:var(--accent,#2f5fb8)!important;color:var(--accent-text,#fff)!important}
+.public-cal-days button:disabled{opacity:.35!important;box-shadow:none!important}
+#publicAvailability>h4{font:900 14px Sora,sans-serif;margin:8px 0 10px}
+.public-cal-times{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;max-height:230px;overflow:auto;padding:2px 3px 7px}
+.public-cal-times button{padding:10px 2px!important;font:800 12px "Atkinson Hyperlegible",sans-serif;border:2px solid var(--border-strong,#111)!important;background:var(--success-bg,#e5f5eb)!important;color:var(--success-fg,#124f35)!important;box-shadow:2px 2px 0 var(--shadow-ink,#111)!important;white-space:nowrap}
+.public-cal-times button.selected{background:var(--accent,#2f5fb8)!important;color:var(--accent-text,#fff)!important}
+.public-calendar-note{font-size:11px!important;color:var(--text-secondary,#444);line-height:1.55}
+#publicAvailability .public-book-cta{display:block;text-align:center;margin-top:13px;font-size:13px;padding:13px 8px}
+#publicAvailability .public-book-cta[aria-disabled=true]{opacity:.65;cursor:not-allowed}
+.public-no-slots{grid-column:1/-1;color:var(--text-secondary,#555)}
+@media(max-width:1050px){.public-cal-days{grid-template-columns:repeat(7,minmax(38px,1fr))}}
