@@ -87,7 +87,7 @@ async function renderDashboard(){
  dash.innerHTML='<div class="admin-loading">Loading platform metrics…</div>';
  const token=++version;
  try{
-  const [o,accounts,bookings,refunds]=await Promise.all([api('/api/admin/overview'),api('/api/admin/accounts'),api('/api/admin/bookings'),api('/api/admin/refunds')]);
+  const [o,accounts,bookings,refunds,analytics]=await Promise.all([api('/api/admin/overview'),api('/api/admin/accounts'),api('/api/admin/bookings'),api('/api/admin/refunds'),api('/api/admin/analytics')]);
   if(token!==version||!dash.isConnected)return;
   const teachers=accounts.filter(x=>x.role==='teacher'),parents=accounts.filter(x=>x.role==='parent');
   const pending=teachers.filter(x=>!x.approved),requested=bookings.filter(x=>x.status==='requested'),confirmed=bookings.filter(x=>x.status==='confirmed'),completed=bookings.filter(x=>x.status==='completed'),paid=bookings.filter(x=>x.payment_status==='paid');
@@ -98,11 +98,28 @@ async function renderDashboard(){
   const names=new Map([...o.students,...accounts].map(x=>[x.id,x.display_name]));
   dash.innerHTML='<div class="admin-hero"><div><span class="admin-eyebrow">PLATFORM / CONTROL CENTER</span><h2>Everything in<br><em>one place.</em></h2><p>Monitor learning, manage tutors and families, review lessons and settle demo points.</p></div><div class="admin-hero-actions"><button data-jump="people">+ Add teacher / parent</button><button data-jump="students">+ Add student</button><button data-jump="bookings">Review bookings ↗</button></div></div>'+
   '<div class="admin-stat-grid">'+count.map(([title,value,icon])=>'<article class="admin-stat"><div><span>'+title+'</span><b>'+icon+'</b></div><strong>'+value+'</strong></article>').join('')+'</div>'+
-  '<div class="admin-data-grid"><section class="admin-graph"><div class="admin-section-heading"><h3>Lesson pipeline</h3><span>LIVE DATA</span></div><div class="admin-bars">'+status.map(([name,n])=>'<div class="admin-bar-row"><span>'+name+'</span><div><i style="width:'+Math.max(0,n/max*100)+'%"></i></div><strong>'+n+'</strong></div>').join('')+'</div><p>Booking statuses from the last 200 records.</p></section>'+
+  '<div class="admin-data-grid"><section class="admin-graph"><div class="admin-section-heading"><h3>Lesson pipeline</h3><span>LIVE DATA</span></div><div class="admin-bars">'+status.map(([name,n])=>'<div class="admin-bar-row"><span>'+name+'</span><progress value="'+n+'" max="'+max+'">'+n+'</progress><strong>'+n+'</strong></div>').join('')+'</div><p>Booking statuses from the last 200 records.</p></section>'+
   '<section class="admin-queue"><div class="admin-section-heading"><h3>Needs attention</h3><span>ACTION QUEUE</span></div>'+[
    ['Tutor approvals',pending.length,'people'],['Lesson requests',requested.length,'bookings'],['Refund reviews',refundsPending.length,'refunds'],['Completed lessons',completed.filter(x=>x.payment_status==='paid').length,'points']
   ].map(([label,n,key])=>'<button data-jump="'+key+'"><span>'+label+'</span><b>'+n+'</b><span>↗</span></button>').join('')+'</section></div>'+
   '<section class="admin-recent"><div class="admin-section-heading"><h3>Recent lessons</h3><button data-jump="bookings">View all ↗</button></div><div class="table-wrap"><table><thead><tr><th>Booking</th><th>Teacher</th><th>Student</th><th>Dubai time</th><th>Points</th><th>Status</th></tr></thead><tbody>'+bookings.slice(0,8).map(b=>'<tr><td>#'+b.id+'</td><td>'+safe(names.get(b.teacher_id)||'Tutor #'+b.teacher_id)+'</td><td>'+safe(names.get(b.student_id)||'Student #'+b.student_id)+'</td><td>'+safe(b.start_at)+'</td><td>'+b.amount_aed+'</td><td><span class="admin-badge">'+safe(b.status)+'</span></td></tr>').join('')+(bookings.length?'':'<tr><td colspan="6">No bookings yet.</td></tr>')+'</tbody></table></div></section>';
+  // Real charts: no fabricated growth, tutor ratings or monetary revenue.
+  const days=Array.from({length:30},(_,i)=>new Date(Date.now()-(29-i)*86400000).toISOString().slice(0,10));
+  const daily=new Map(analytics.users_by_day.map(x=>[x.day,x.count]));
+  let running=o.students.length+teachers.length+parents.length;
+  // Show account creations per day, not misleading cumulative population history.
+  const maxDaily=Math.max(1,...analytics.users_by_day.map(x=>x.count));
+  const maxPoints=Math.max(1,...analytics.points_by_month.map(x=>x.points));
+  const maxLessons=Math.max(1,...analytics.lesson_subjects.map(x=>x.lessons));
+  const analyticsPanel=node('div','admin-analytics-grid');
+  analyticsPanel.innerHTML=
+   '<section class="admin-graph"><div class="admin-section-heading"><h3>New accounts</h3><span>LAST 30 DAYS</span></div><div class="admin-daily-chart" aria-label="Daily new account registrations">'+days.map(d=>'<div class="admin-daily-column" title="'+d+': '+(daily.get(d)||0)+' accounts"><progress max="'+maxDaily+'" value="'+(daily.get(d)||0)+'">'+(daily.get(d)||0)+'</progress></div>').join('')+'</div><p>New registrations by day. Based on actual account creation timestamps.</p></section>'+
+   '<section class="admin-graph"><div class="admin-section-heading"><h3>Lessons by subject</h3><span>ALL BOOKINGS</span></div><div class="admin-bars">'+(analytics.lesson_subjects.length?analytics.lesson_subjects.map(x=>'<div class="admin-bar-row"><span>'+safe(x.subject)+'</span><progress max="'+maxLessons+'" value="'+x.lessons+'">'+x.lessons+'</progress><strong>'+x.lessons+'</strong></div>').join(''):'<p>No lesson records yet.</p>')+'</div><p>Grouped by each tutor’s primary listed subject.</p></section>'+
+   '<section class="admin-graph"><div class="admin-section-heading"><h3>Point transfers</h3><span>DEMO / LAST 6 MONTHS</span></div><div class="admin-month-chart">'+(analytics.points_by_month.length?analytics.points_by_month.map(x=>'<div><progress max="'+maxPoints+'" value="'+x.points+'">'+x.points+'</progress><small>'+safe(x.month)+'</small><strong>'+x.points+'</strong></div>').join(''):'<p>No transfers recorded.</p>')+'</div><p>Parent-to-admin points only. No cash revenue.</p></section>'+
+   '<section class="admin-graph"><div class="admin-section-heading"><h3>Recent users</h3><button data-jump="people">Manage people ↗</button></div><div class="admin-new-users">'+analytics.recent_users.map(u=>'<div><span class="admin-user-avatar">'+safe(u.display_name.slice(0,1))+'</span><span><strong>'+safe(u.display_name)+'</strong><small>'+safe(u.role)+' · '+safe(u.created_at.slice(0,10))+'</small></span></div>').join('')+'</div></section>';
+  const recent=target.querySelector('.admin-recent');
+  if(recent)recent.after(analyticsPanel);
+  analyticsPanel.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>tab(b.dataset.jump));
   // Operational tables use the same live records as the KPI overview.
   const bookingScreen=document.querySelector('.admin-screen[data-screen="bookings"]');
   if(bookingScreen&&!bookingScreen.querySelector('#adminBookingTable')){
