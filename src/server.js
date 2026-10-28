@@ -334,6 +334,7 @@ function sendPage(res, file) {
   res.set('Cache-Control', 'no-cache').type('html').send(pageCache[file]);
 }
 app.get('/admin', (req, res) => sendPage(res, 'admin.html'));
+app.get('/portal', (req, res) => sendPage(res, 'portal.html'));
 app.get('/', (req, res) => sendPage(res, 'index.html'));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 
