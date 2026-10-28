@@ -80,3 +80,52 @@
 .person-demo-avatar,.person-initial{display:grid;place-items:center;flex:0 0 56px;width:56px;height:56px;object-fit:cover;border:2px solid var(--border-strong,#111);background:var(--surface-blue,#eaf1ff);color:var(--text-primary,#111);font-weight:900;font-size:24px}
 
 .portal-user-heading{display:flex;align-items:center;gap:17px}.portal-user-heading .person-demo-avatar,.portal-user-heading .person-initial{width:76px;height:76px;flex-basis:76px}
+
+/* Reference-matched tutor finder: search/filter header, 4-across cards and live right profile. */
+#tutorMarketplace{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,360px);column-gap:24px;align-items:start;min-width:0}
+#tutorMarketplace>.market-heading,#tutorMarketplace>.market-filters{grid-column:1/-1}
+#tutorMarketplace>.market-heading h2{font-size:clamp(32px,4vw,49px);line-height:1.1}
+#tutorMarketplace>.market-grid{grid-column:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;min-width:0}
+#tutorMarketplace>#marketDetail{grid-column:2;grid-row:3;min-width:0;position:sticky;top:18px;align-self:start}
+#tutorMarketplace .market-card{display:flex;flex-direction:column;min-height:375px}
+#tutorMarketplace .market-card-body{display:flex;flex-direction:column;flex:1;padding:13px}
+#tutorMarketplace .market-card-bio{display:none}
+#tutorMarketplace .market-card h3{font-size:clamp(16px,1.4vw,19px);line-height:1.2;margin:9px 0 7px}
+#tutorMarketplace .market-card .market-meta{min-height:32px;margin:8px 0 10px}
+#tutorMarketplace .market-portrait{height:180px;min-height:180px;overflow:hidden}
+#tutorMarketplace .market-portrait img{width:100%;height:100%;object-fit:cover}
+#tutorMarketplace .market-card-foot{margin-top:auto;align-items:center;flex-wrap:wrap}
+#tutorMarketplace .market-card-foot button{width:100%;text-align:center}
+#tutorMarketplace .market-card-foot strong{font-size:24px;color:var(--accent,#2f5fb8)}
+#tutorMarketplace .market-card-active{outline:3px solid var(--accent,#2f5fb8);outline-offset:2px}
+#tutorMarketplace .market-profile{margin:0;padding:18px;box-shadow:5px 5px 0 var(--shadow-ink,#111);min-height:480px}
+#tutorMarketplace .market-profile-top{display:grid;grid-template-columns:104px minmax(0,1fr);gap:13px;align-items:center;padding-bottom:15px}
+#tutorMarketplace .market-profile-avatar{width:104px;height:116px;flex:none;overflow:hidden;border:2px solid var(--border-strong,#111);background:var(--surface-blue,#eaf1ff);color:var(--text-primary,#111);font-size:30px}
+#tutorMarketplace .market-profile-avatar img{width:100%;height:100%;object-fit:cover}
+#tutorMarketplace .market-profile-name h3{font-size:22px;margin:8px 0 4px;overflow-wrap:anywhere}
+#tutorMarketplace .market-profile-name p{margin:0;font-weight:700;font-size:13px}
+#tutorMarketplace .market-profile-quick{display:grid;gap:10px;padding:17px 0;border-bottom:2px solid var(--border-strong,#111);font-size:13px;font-weight:700}
+#tutorMarketplace .market-profile-rates{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:15px 0}
+#tutorMarketplace .market-profile-rates>div{padding:11px;background:var(--surface-blue,#eaf1ff);border:2px solid var(--border-strong,#111)}
+#tutorMarketplace .market-profile-rates small{font:800 10px "JetBrains Mono",monospace}
+#tutorMarketplace .market-profile-rates strong{display:block;margin-top:6px;font:900 24px Sora,sans-serif;color:var(--accent,#2f5fb8)}
+#tutorMarketplace .market-profile-rates em{font:700 11px "Atkinson Hyperlegible",sans-serif;font-style:normal;color:var(--text-primary,#111)}
+#tutorMarketplace .market-profile-tabs{display:flex;gap:0;border-bottom:2px solid var(--border-strong,#111);overflow:auto}
+#tutorMarketplace .market-profile-tabs button{flex:1;border:0!important;border-bottom:4px solid transparent!important;box-shadow:none!important;background:transparent!important;font:800 12px "Atkinson Hyperlegible",sans-serif;padding:12px 6px;color:var(--text-secondary,#444)!important}
+#tutorMarketplace .market-profile-tabs button.active{border-bottom-color:var(--accent,#2f5fb8)!important;color:var(--accent,#2f5fb8)!important}
+#tutorMarketplace .market-info-panel{padding:14px 0;min-height:135px}
+#tutorMarketplace .market-info-panel h4{font:900 14px Sora,sans-serif;margin:10px 0 8px}
+#tutorMarketplace .market-info-panel p{font-size:13px;line-height:1.55;margin:0 0 12px;white-space:pre-wrap;color:var(--text-secondary,#444)}
+#tutorMarketplace .market-info-tags{display:flex;flex-wrap:wrap;gap:7px}
+#tutorMarketplace .market-info-tags span,#tutorMarketplace .market-weekdays span{display:inline-block;padding:5px 8px;border:1.5px solid var(--border-strong,#111);background:var(--surface-blue,#eaf1ff);font-size:12px;font-weight:800}
+#tutorMarketplace .market-weekdays{display:flex;flex-wrap:wrap;gap:5px}
+#tutorMarketplace .market-book-btn{display:block;width:100%;padding:16px 10px!important;background:var(--accent,#2f5fb8)!important;color:var(--accent-text,#fff)!important;border:2px solid var(--border-strong,#111)!important;box-shadow:4px 4px 0 var(--shadow-ink,#111)!important;font:900 15px "Atkinson Hyperlegible",sans-serif!important;text-align:center}
+#tutorMarketplace .market-book-note{font-size:11px;color:var(--text-secondary,#555);text-align:center;margin:12px 0 0}
+#tutorMarketplace .market-approved{font-size:10px;letter-spacing:.01em}
+#tutorMarketplace .market-filters{grid-template-columns:minmax(170px,2fr) repeat(4,minmax(110px,1fr)) minmax(118px,1fr) auto}
+#tutorMarketplace .market-grid .market-empty{grid-column:1/-1}
+@media(min-width:1500px){#tutorMarketplace>.market-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1250px){#tutorMarketplace>.market-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#tutorMarketplace .market-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){#tutorMarketplace{display:block}#tutorMarketplace>.market-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#tutorMarketplace>#marketDetail{position:static;margin-top:25px}#tutorMarketplace .market-profile{min-height:0}}
+@media(max-width:600px){#tutorMarketplace>.market-grid{grid-template-columns:1fr 1fr;gap:10px}#tutorMarketplace .market-filters{grid-template-columns:1fr 1fr}#tutorMarketplace .market-portrait{height:135px;min-height:135px}#tutorMarketplace .market-card h3{font-size:15px}#tutorMarketplace .market-card-body{padding:10px}#tutorMarketplace .market-card-foot strong{font-size:20px}}
+@media(max-width:410px){#tutorMarketplace>.market-grid{grid-template-columns:1fr}#tutorMarketplace .market-filters{grid-template-columns:1fr}}
