@@ -22,6 +22,9 @@ jobs:
           node --check src/payments.js
           node --check src/openai-adapter.js
           node --check public/portal.js
+          node --check public/tutor-marketplace.js
+          node --check public/landing.js
+          node --check scripts/seed-demo.js
           node --check public/admin-marketplace.js
           node --check scripts/smoke-test.js
       - name: Regression tests
@@ -30,3 +33,9 @@ jobs:
           node scripts/migration-test.js
         env:
           AI_MOCK: '1'
+      - name: Demo seed is safe to rerun
+        run: |
+          export DB_PATH="$RUNNER_TEMP/amer-demo-test.sqlite"
+          node scripts/seed-demo.js > "$RUNNER_TEMP/demo-first.log"
+          node scripts/seed-demo.js > "$RUNNER_TEMP/demo-second.log"
+          node -e "const d=require('./src/db');for(const [role,n] of [['teacher',6],['parent',3],['student',6]]){const c=d.prepare(\"SELECT COUNT(*) n FROM users WHERE role=? AND username LIKE 'demo.%'\").get(role).n;if(c!==n)throw Error(role+': '+c);}const photos=d.prepare(\"SELECT COUNT(*) n FROM teacher_profiles WHERE approved=1\").get().n;if(photos<6)throw Error('No approved demo teachers');console.log('Demo records and re-run verified')"
