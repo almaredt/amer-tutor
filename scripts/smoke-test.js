@@ -313,6 +313,39 @@ const server = app.listen(0, async () => {
     assert.ok(pr.aiOn && !pr.aiLimitReached, 'family plan keeps Claude on');
     await req('admin', 'PUT', '/api/admin/billing', { enabled: false, plans: { free: { dailyUsd: 0.6 } } });
 
+    // ---- four-role marketplace regression tests ----
+    const teacherCreate=await req('admin','POST','/api/admin/accounts',{role:'teacher',username:'tutor01',display_name:'Teacher One',password:'teachpass1'});
+    const parentCreate=await req('admin','POST','/api/admin/accounts',{role:'parent',username:'parent01',display_name:'Parent One',password:'parentpass1'});
+    assert.equal(teacherCreate.status,201,JSON.stringify(teacherCreate.data));
+    assert.equal(parentCreate.status,201,JSON.stringify(parentCreate.data));
+    const tid=teacherCreate.data.id,pid=parentCreate.data.id;
+    assert.equal((await req('teacher','POST','/api/login',{username:'tutor01',password:'teachpass1'})).status,200);
+    assert.equal((await req('parent','POST','/api/login',{username:'parent01',password:'parentpass1'})).status,200);
+    assert.equal((await req('parent','GET','/api/teacher/me')).status,403);
+    assert.equal((await req('teacher','GET','/api/parent/children')).status,403);
+    assert.equal((await req('parent','GET','/api/parent/children/'+uid+'/progress')).status,404,'unlinked parent cannot see child');
+    assert.equal((await req('teacher','GET','/api/teacher/students/'+uid+'/progress')).status,404,'unlinked teacher cannot see student');
+    assert.equal((await req('admin','POST','/api/admin/links',{role:'parent',actor_id:pid,student_id:uid})).status,200);
+    assert.equal((await req('admin','POST','/api/admin/links',{role:'teacher',actor_id:tid,student_id:uid,subject:'Math'})).status,200);
+    assert.equal((await req('parent','GET','/api/parent/children/'+uid+'/progress')).status,200);
+    assert.equal((await req('teacher','GET','/api/teacher/students/'+uid+'/progress')).status,200);
+    const profile={bio:'Math teacher',subjects:['Mathematics'],grades:['9'],curricula:['MYP'],languages:['English'],rate_45_aed:100,rate_60_aed:130};
+    assert.equal((await req('teacher','PUT','/api/teacher/profile',profile)).status,200);
+    assert.equal((await req('parent','GET','/api/teachers')).data.length,0,'unapproved teachers hidden');
+    assert.equal((await req('admin','POST','/api/admin/teachers/'+tid+'/approve',{approved:true})).status,200);
+    assert.equal((await req('parent','GET','/api/teachers')).data.length,1);
+    assert.equal((await req('teacher','POST','/api/teacher/materials',{student_id:uid,kind:'assignment',title:'Math homework',body:'Solve 2x=4'})).status,201);
+    assert.ok((await req('s','GET','/api/student/materials')).data.some(x=>x.title==='Math homework'));
+    assert.equal((await req('parent','POST','/api/messages/'+uid+'/'+tid,{body:'hello'})).status,403);
+    assert.equal((await req('s','POST','/api/messages/'+uid+'/'+tid,{body:'Question about homework'})).status,201);
+    assert.equal((await req('teacher','GET','/api/messages/'+uid+'/'+tid)).data.length,1);
+    assert.equal((await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:45,start_at:'2099-12-15T14:00'})).status,201);
+    assert.equal((await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:60,start_at:'2099-12-15T14:15'})).status,409,'overlapping requests rejected');
+    assert.equal((await req('teacher','GET','/api/teacher/bookings')).data.length,1);
+    assert.equal((await req('parent','GET','/api/parent/bookings')).data[0].payment_status,'unpaid');
+    assert.equal((await req('admin','GET','/api/admin/bookings')).data.length,1);
+    assert.deepEqual(db.pragma('foreign_key_check'),[],'foreign keys valid after role migration');
+
     // pages served with security headers
     const page = await fetch(base + '/'); assert.equal(page.status, 200); assert.ok(page.headers.get('content-security-policy'));
     console.log('All smoke tests passed ✓');
