@@ -25,6 +25,8 @@ jobs:
           node --check public/admin-marketplace.js
           node --check scripts/smoke-test.js
       - name: Regression tests
-        run: npm test
+        run: |
+          npm test
+          node scripts/migration-test.js
         env:
           AI_MOCK: '1'
