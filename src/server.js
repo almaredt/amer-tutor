@@ -228,7 +228,7 @@ app.post('/api/parent/bookings',P,(req,res)=>{
  if(!validId(sid)||!validId(tid)||!parentOf(req.user.id,sid)||![45,60].includes(minutes))return res.status(403).json({error:'Invalid booking request.'});
  if(typeof b.start_at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(b.start_at))return res.status(400).json({error:'Invalid date.'});
  const start=Date.parse(b.start_at+'+04:00');
- if(!Number.isFinite(start)||new Date(start).toISOString().slice(0,16)!==new Date(Date.parse(b.start_at+'Z')).toISOString().slice(0,16)||start<Date.now()+3600000)return res.status(400).json({error:'Choose a future Dubai time.'});
+ if(!Number.isFinite(start)||!Number.isFinite(Date.parse(b.start_at+'Z'))||start<Date.now()+3600000)return res.status(400).json({error:'Choose a future Dubai time.'});
  const t=db.prepare('SELECT t.* FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND t.approved=1 AND u.active=1').get(tid);
  if(!t)return res.status(404).json({error:'Teacher not available.'});
  const amount=minutes===45?t.rate_45_aed:t.rate_60_aed;
