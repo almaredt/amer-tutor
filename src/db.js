@@ -124,6 +124,27 @@ CREATE TABLE IF NOT EXISTS ai_log (
 );
 `);
 
+// Expand legacy role CHECK safely, preserving user IDs and all related rows.
+// SQLite cannot ALTER a CHECK constraint in place. Disable FK checks only for this
+// isolated table rebuild, then verify referential integrity before accepting it.
+if (!db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get().sql.includes("'teacher'")) {
+  const columns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  const create = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get().sql;
+  const expanded = create.replace("role IN ('admin','student')", "role IN ('admin','student','teacher','parent')").replace(/CREATE TABLE IF NOT EXISTS users/i, 'CREATE TABLE users_new');
+  if (expanded === create || !expanded.includes('users_new')) throw new Error('Unexpected users schema; cannot migrate roles safely');
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(expanded);
+      const cols = columns.map((c) => '"' + c.replace(/"/g, '""') + '"').join(',');
+      db.exec('INSERT INTO users_new (' + cols + ') SELECT ' + cols + ' FROM users');
+      db.exec('DROP TABLE users');
+      db.exec('ALTER TABLE users_new RENAME TO users');
+    })();
+  } finally { db.pragma('foreign_keys = ON'); }
+  if (db.pragma('foreign_key_check').length) throw new Error('Foreign key integrity failed after role migration');
+}
+
 // ---------- multi-school: schools, study profile on users, course on questions ----------
 db.exec(`
 CREATE TABLE IF NOT EXISTS schools (
@@ -156,6 +177,53 @@ db.prepare("INSERT OR IGNORE INTO schools (name, kind) VALUES ('Uptown Internati
   db.prepare(`UPDATE users SET school_id=?, programme='MYP', grade=9, subjects=?, course_id=?
     WHERE role='student' AND school_id IS NULL`).run(uptown, subj, BANK_COURSE.id);
 }
+
+// Marketplace phase 1: teacher profiles, family links and student assignments.
+// Never expose a child to a parent or teacher without an explicit association.
+db.exec(`
+CREATE TABLE IF NOT EXISTS teacher_profiles (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  bio TEXT NOT NULL DEFAULT '',
+  subjects TEXT NOT NULL DEFAULT '[]',
+  grades TEXT NOT NULL DEFAULT '[]',
+  curricula TEXT NOT NULL DEFAULT '[]',
+  languages TEXT NOT NULL DEFAULT '[]',
+  rate_45_aed INTEGER,
+  rate_60_aed INTEGER,
+  approved INTEGER NOT NULL DEFAULT 0 CHECK (approved IN (0,1))
+);
+CREATE TABLE IF NOT EXISTS parent_students (
+  parent_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  PRIMARY KEY (parent_id, student_id)
+);
+CREATE TABLE IF NOT EXISTS teacher_students (
+  teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  subject TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (teacher_id, student_id, subject)
+);
+CREATE TABLE IF NOT EXISTS teacher_materials (
+  id INTEGER PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('lesson','assignment','exam')),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  due_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS teacher_messages (
+  id INTEGER PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_material_student ON teacher_materials(student_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_student ON teacher_messages(student_id, teacher_id, created_at);
+`);
 
 // Seed / refresh the hand-written bank (fixes in question-bank.js reach the DB on restart).
 function seedBank() {
