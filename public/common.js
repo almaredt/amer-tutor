@@ -39,5 +39,6 @@ function applyLook() {
   const r = document.documentElement;
   if (t === 'light' || t === 'dark') r.dataset.theme = t; else delete r.dataset.theme;
   r.classList.toggle('text-large', z === 'large');
+  window.dispatchEvent(new Event('amer-theme-change'));
 }
 applyLook();
