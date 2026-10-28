@@ -6,20 +6,20 @@ const db = require('./db');
 
 // Model per job, to keep cost down: Opus writes new questions (accuracy matters most),
 // Sonnet explains and answers topic questions, Haiku suggests marks against the mark scheme.
-const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5-5';
+const MODEL = process.env.CLAUDE_MODEL || 'gpt-4.1';
 const MODELS = {
   generate: MODEL,
-  explain: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5',
-  ask: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5',
-  mark: process.env.CLAUDE_MODEL_MARK || 'claude-haiku-5-5',
-  photo: process.env.CLAUDE_MODEL_PHOTO || 'claude-sonnet-5-5', // reading handwriting needs a stronger model than Haiku
-  level: process.env.CLAUDE_MODEL_EXPLAIN || 'claude-sonnet-5-5', // MYP level judgement for criterion tasks
+  explain: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini',
+  ask: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini',
+  mark: process.env.CLAUDE_MODEL_MARK || 'gpt-4.1-mini',
+  photo: process.env.CLAUDE_MODEL_PHOTO || 'gpt-4.1-mini', // reading handwriting needs a stronger model than Haiku
+  level: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini', // MYP level judgement for criterion tasks
 };
 const modelFor = (kind) => MODELS[kind] || MODEL;
 const MOCK = process.env.AI_MOCK === '1';
 const client = !MOCK && process.env.OPENAI_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 // USD per million tokens [input, output]. Update if prices change: https://platform.claude.com/docs/en/about-claude/pricing
-const PRICES = { 'claude-opus-5-5': [4, 20], 'claude-sonnet-5-5': [2, 10], 'claude-haiku-5-5': [0.1, 0.5] };
+const PRICES = { 'gpt-4.1': [4, 20], 'gpt-4.1-mini': [2, 10], 'gpt-4.1-mini': [0.1, 0.5] };
 const MONTHLY_LIMIT_USD = Number(process.env.AI_MONTHLY_LIMIT_USD || 10);
 
 const available = () => MOCK || !!client;
@@ -27,14 +27,14 @@ const available = () => MOCK || !!client;
 function monthCost() {
   const rows = db.prepare(`SELECT model, SUM(input_tokens) i, SUM(output_tokens) o FROM ai_log
     WHERE created_at >= date('now','start of month') GROUP BY model`).all();
-  return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['claude-opus-5-5']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
+  return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['gpt-4.1']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
 }
 
 // What one student has spent on Claude today (UTC day), for the per-student daily cap.
 function userDayCost(userId) {
   const rows = db.prepare(`SELECT model, SUM(input_tokens) i, SUM(output_tokens) o FROM ai_log
     WHERE user_id = ? AND created_at >= date('now') GROUP BY model`).all(userId);
-  return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['claude-opus-5-5']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
+  return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['gpt-4.1']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
 }
 
 // Who the student is, for every prompt: "Grade 11 IB Diploma Programme (DP) student (about 16)".
