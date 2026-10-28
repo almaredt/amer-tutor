@@ -46,7 +46,7 @@ async function loadPlan(pickToday) {
 
 function renderShell() {
   $('root').innerHTML = `
-  <div class="topbar"><div class="tabs"><button data-v="study" class="sel">Study plan</button>${ST.me.course && ST.me.course.learn ? '<button data-v="learn">Learn topics</button>' : ''}</div>
+  <div class="topbar"><div class="tabs"><button data-v="study" class="sel">Study plan</button><button data-v="progress">My progress</button>${ST.me.course && ST.me.course.learn ? '<button data-v="learn">Learn topics</button>' : ''}</div>
     <div class="menu-wrap"><span class="who-name">${esc(ST.me.name)}</span>
       <button class="icon-btn" id="menuBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false">${ICON.menu}</button>
       <div class="menu" id="menu" role="menu" hidden>
@@ -60,7 +60,7 @@ function renderShell() {
       </div></div></div>
   <div class="remind" id="remindBox" hidden></div>
   <div id="learnView" hidden><div class="learn"><nav class="tlist" id="tlist" aria-label="Topics"></nav><div id="lessonWrap"></div></div></div>
-  <div id="studyView" class="section">
+  <div id="progressView" class="section" hidden></div>\n  <div id="studyView" class="section">
   <header><div><h1>What do I study today?</h1><p class="sub">Every session: 10 quiz + 5 written questions. Wrong answers come back until they stick.</p></div>
     <div class="progress"><span id="progTxt"></span><div class="bar"><i id="progBar"></i></div></div></header>
   <nav class="weeks" id="weeks" aria-label="Weeks"></nav>
@@ -370,8 +370,8 @@ function changePassword() {
 function setMode(m) {
   ST.mode = m; ST.quiz = null;
   document.querySelectorAll('.tabs [data-v]').forEach((b) => b.classList.toggle('sel', b.dataset.v === m));
-  $('learnView').hidden = m !== 'learn'; $('studyView').hidden = m !== 'study';
-  if (m === 'learn') { $('card').innerHTML = ''; renderLearn(); } else { $('lessonWrap').innerHTML = ''; renderNav(); openSession(); }
+  $('learnView').hidden = m !== 'learn'; $('studyView').hidden = m !== 'study'; $('progressView').hidden = m !== 'progress';
+  if (m === 'progress') { const v=$('progressView');v.innerHTML='<p>Loading learning insights…</p>';api('/api/student/progress-insights').then(d=>ProgressInsights.render(v,d,ST.me.name)).catch(e=>v.textContent=e.message); } else if (m === 'learn') { $('card').innerHTML = ''; renderLearn(); } else { $('lessonWrap').innerHTML = ''; renderNav(); openSession(); }
   scrollTo(0, 0);
 }
 const lvlOf = (p) => (p == null ? '' : p >= 80 ? 'lvl-good' : p >= 50 ? 'lvl-mid' : 'lvl-low');
