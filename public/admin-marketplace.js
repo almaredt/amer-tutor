@@ -2,7 +2,7 @@
 (function(){
 const escM=(s)=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 async function init(){
- const v=document.getElementById('view');if(!v||document.getElementById('marketplaceAdmin'))return;
+ const v=document.getElementById('view');if(!v||document.getElementById('marketplaceAdmin')||document.querySelector('.admin-ops-panel'))return;
  let accounts,payouts,bookings,refunds;try{[accounts,payouts,bookings,refunds]=await Promise.all([api('/api/admin/accounts'),Promise.resolve([]),api('/api/admin/bookings'),api('/api/admin/refunds')]);}catch(e){return;}
  const sec=document.createElement('section');sec.id='marketplaceAdmin';sec.className='panel';
  sec.innerHTML='<h3>Teachers & Parents</h3><form id="createMarketplace"><div class="form-row"><label class="field">Role<select name="role"><option value="teacher">Teacher</option><option value="parent">Parent</option></select></label><label class="field">Name<input name="display_name" required maxlength="60"></label><label class="field">Username<input name="username" required minlength="3" maxlength="32"></label><label class="field">Password<input name="password" type="password" required minlength="8"></label></div><button class="btn primary">Create account</button></form><p id="marketStatus"></p>'+
@@ -20,4 +20,4 @@ async function init(){
  sec.querySelectorAll('[data-approve]').forEach(b=>b.onclick=async()=>{try{await api('/api/admin/teachers/'+b.dataset.approve+'/approve',{approved:b.dataset.next==='1'});b.textContent='Updated. Refresh.';}catch(e){document.getElementById('marketStatus').textContent=e.message;}});
  sec.querySelector('#linkMarketplace').onsubmit=async(e)=>{e.preventDefault();const f=new FormData(e.target);try{await api('/api/admin/links',{role:f.get('role'),actor_id:Number(f.get('actor_id')),student_id:Number(f.get('student_id')),subject:f.get('subject')});document.getElementById('marketStatus').textContent='Linked successfully.';}catch(ex){document.getElementById('marketStatus').textContent=ex.message;}};
 }
-const obs=new MutationObserver(()=>{if(document.querySelector('#view .tiles')&&!document.getElementById('marketplaceAdmin')){api('/api/admin/overview').then(d=>{window.__marketStudents=d.students;init();}).catch(()=>{});}});obs.observe(document.body,{childList:true,subtree:true});})();
+const obs=new MutationObserver(()=>{if(document.querySelector('#view .tiles')&&!document.getElementById('marketplaceAdmin')&&!document.querySelector('.admin-ops-panel')){api('/api/admin/overview').then(d=>{window.__marketStudents=d.students;init();}).catch(()=>{});}});obs.observe(document.body,{childList:true,subtree:true});})();
