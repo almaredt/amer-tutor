@@ -413,7 +413,7 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 const PORT = Number(process.env.PORT || 3100);
 const HOST = process.env.HOST || '127.0.0.1';
 if (require.main === module) {
-  app.listen(PORT, HOST, () => console.log(`Amer Tutor running on http://${HOST}:${PORT}  (Claude: ${ai.MOCK ? 'mock' : ai.available() ? Object.entries(ai.MODELS).map(([k, m]) => k + '=' + m).join(', ') : 'not configured'})`));
+  app.listen(PORT, HOST, () => console.log(`Amer Tutor running on http://${HOST}:${PORT}  (OpenAI: ${ai.MOCK ? 'mock' : ai.available() ? Object.entries(ai.MODELS).map(([k, m]) => k + '=' + m).join(', ') : 'not configured'})`));
   push.start();
 }
 module.exports = app;
