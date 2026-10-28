@@ -153,6 +153,13 @@ const server = app.listen(0, async () => {
     assert.ok(darkCSS.includes('.q .opt:disabled'),'disabled answer contrast is explicitly protected');
     const directory=await fetch(base+'/tutors');
     assert.equal(directory.status,200,'public tutor directory accessible without login');
+    const detailPublic=await fetch(base+'/tutor/'+tid);
+    assert.equal(detailPublic.status,200,'tutor detail page available without login');
+    const detailHtml=await detailPublic.text();
+    assert.ok(detailHtml.includes('txDetail')&&detailHtml.includes('/tutor-explore.js'),'detail view loads native UI');
+    const listingHtml=await directory.clone().text();
+    assert.ok(listingHtml.includes('txListing')&&listingHtml.includes('/tutor-explore.css'),'dedicated tutor listing loads');
+
     const directoryHTML=await directory.text();
     assert.ok(directoryHTML.includes('/public-tutors.js'),'public tutor discovery UI loads');
     const demoAvatar=await fetch(base+'/demo-avatar/aisyah.svg');
