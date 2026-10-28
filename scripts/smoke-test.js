@@ -1,6 +1,7 @@
 // End-to-end smoke test with a throwaway database and fake Claude answers.
 // Run: npm test
 process.env.AI_MOCK = '1';
+process.env.STRIPE_WEBHOOK_SECRET = 'whsec_smoketest_only';
 process.env.DB_PATH = require('path').join(require('os').tmpdir(), `tutor-test-${process.pid}.db`);
 const assert = require('assert');
 const app = require('../src/server');
@@ -345,6 +346,25 @@ const server = app.listen(0, async () => {
     assert.equal((await req('teacher','GET','/api/teacher/bookings')).data.length,1);
     assert.equal((await req('parent','GET','/api/parent/bookings')).data[0].payment_status,'unpaid');
     assert.equal((await req('admin','GET','/api/admin/bookings')).data.length,1);
+    // Signed webhook is the only path to paid status; browser redirects do not count.
+    const booking=(await req('parent','GET','/api/parent/bookings')).data[0];
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/checkout',{})).status,409,'unconfirmed lesson cannot be paid');
+    assert.equal((await req('teacher','POST','/api/teacher/bookings/'+booking.id+'/confirm',{})).status,200);
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/checkout',{})).status,503,'payment disabled without merchant credentials');
+    const crypto=require('crypto');
+    const payload=JSON.stringify({id:'evt_smoke_1',type:'checkout.session.completed',data:{object:{metadata:{booking_id:String(booking.id)},client_reference_id:String(booking.id),payment_status:'paid',currency:'aed',amount_total:10000}}});
+    const ts=Math.floor(Date.now()/1000);
+    const sig=crypto.createHmac('sha256',process.env.STRIPE_WEBHOOK_SECRET).update(ts+'.'+payload).digest('hex');
+    assert.equal((await fetch(base+'/webhooks/stripe',{method:'POST',headers:{'Content-Type':'application/json','stripe-signature':'t='+ts+',v1=bad'},body:payload})).status,400,'reject forged payment');
+    assert.equal((await fetch(base+'/webhooks/stripe',{method:'POST',headers:{'Content-Type':'application/json','stripe-signature':'t='+ts+',v1='+sig},body:payload})).status,200,'accept signed paid event');
+    assert.equal((await req('parent','GET','/api/parent/bookings')).data[0].payment_status,'paid');
+    assert.equal((await req('teacher','GET','/api/teacher/earnings')).data[0].amount_aed,85,'15% platform commission');
+    assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,409,'cannot pay teacher before lesson completion');
+    db.prepare('UPDATE lesson_bookings SET start_at=? WHERE id=?').run('2020-01-01T10:00',booking.id);
+    assert.equal((await req('teacher','POST','/api/teacher/bookings/'+booking.id+'/complete',{})).status,200);
+    assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,200);
+    assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,409,'payout is idempotent');
+
     assert.deepEqual(db.pragma('foreign_key_check'),[],'foreign keys valid after role migration');
 
     // pages served with security headers
