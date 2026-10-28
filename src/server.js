@@ -236,6 +236,21 @@ app.post('/api/parent/bookings',P,(req,res)=>{
  const id=db.prepare('INSERT INTO lesson_bookings(parent_id,student_id,teacher_id,start_at,minutes,amount_aed) VALUES(?,?,?,?,?,?)').run(req.user.id,sid,tid,b.start_at,minutes,amount).lastInsertRowid;
  res.status(201).json({id,status:'requested',amount_aed:amount,payment_status:'unpaid'});
 });
+app.post('/api/teacher/bookings/:id/confirm',T,(req,res)=>{
+ const row=db.prepare('SELECT id FROM lesson_bookings WHERE id=? AND teacher_id=? AND status=?').get(Number(req.params.id),req.user.id,'requested');
+ if(!row)return res.status(409).json({error:'Booking not available for confirmation.'});
+ db.prepare('UPDATE lesson_bookings SET status=? WHERE id=?').run('confirmed',row.id);
+ res.json({ok:true,status:'confirmed'});
+});
+app.post('/api/parent/bookings/:id/checkout',P,wrap(async(req,res)=>{
+ const booking=db.prepare('SELECT * FROM lesson_bookings WHERE id=? AND parent_id=?').get(Number(req.params.id),req.user.id);
+ if(!booking)return res.status(404).json({error:'Booking not found.'});
+ if(booking.status!=='confirmed'||booking.payment_status==='paid')return res.status(409).json({error:'Booking must be confirmed and unpaid.'});
+ if(!payments.configured())return res.status(503).json({error:'Online payment is not configured yet.'});
+ const result=await payments.checkout(booking);
+ db.prepare("UPDATE lesson_bookings SET payment_status='pending' WHERE id=? AND payment_status='unpaid'").run(booking.id);
+ res.json({url:result.url});
+}));
 app.get('/api/parent/bookings',P,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE parent_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/teacher/bookings',T,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE teacher_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/admin/bookings',A,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings ORDER BY id DESC LIMIT 200').all()));
