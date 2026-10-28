@@ -257,6 +257,7 @@ app.post('/api/teacher/bookings/:id/complete',T,(req,res)=>{
  const booking=db.prepare("SELECT * FROM lesson_bookings WHERE id=? AND teacher_id=? AND status='confirmed' AND payment_status='paid'").get(Number(req.params.id),req.user.id);
  if(!booking)return res.status(409).json({error:'Only confirmed, paid lessons can be completed.'});
  if(Date.parse(booking.start_at+'+04:00')+booking.minutes*60000>Date.now())return res.status(409).json({error:'Lesson has not ended.'});
+ if(db.prepare("SELECT 1 FROM point_refund_requests WHERE booking_id=? AND status='requested'").get(booking.id))return res.status(409).json({error:'Refund request is pending.'});
  db.prepare("UPDATE lesson_bookings SET status='completed' WHERE id=?").run(booking.id);
  res.json({ok:true});
 });
@@ -291,15 +292,6 @@ app.post('/api/admin/bookings/:id/settle-points',A,(req,res)=>{
 });
 app.get('/api/parent/bookings',P,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE parent_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/teacher/bookings',T,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE teacher_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
-app.get('/api/teacher/earnings',T,(req,res)=>res.json(db.prepare("SELECT p.id,p.booking_id,p.amount_aed,p.status,b.status lesson_status,b.payment_status FROM teacher_payouts p JOIN lesson_bookings b ON b.id=p.booking_id WHERE p.teacher_id=? ORDER BY p.id DESC").all(req.user.id)));
-app.get('/api/admin/payouts',A,(req,res)=>res.json(db.prepare("SELECT p.*,b.status lesson_status,b.payment_status FROM teacher_payouts p JOIN lesson_bookings b ON b.id=p.booking_id ORDER BY p.id DESC LIMIT 200").all()));
-app.post('/api/admin/payouts/:id/paid',A,(req,res)=>{
- const note=req.body&&req.body.note;
- if(typeof note!=='string'||note.trim().length<5||note.length>300)return res.status(400).json({error:'Enter bank transfer reference (at least 5 characters).'});
- const result=db.prepare("UPDATE teacher_payouts SET status='paid',paid_at=datetime('now'),note=? WHERE id=? AND status='pending' AND EXISTS(SELECT 1 FROM lesson_bookings b WHERE b.id=teacher_payouts.booking_id AND b.status='completed' AND b.payment_status='paid')").run(note.trim(),Number(req.params.id));
- if(!result.changes)return res.status(409).json({error:'Payout not eligible or already marked paid.'});
- res.json({ok:true});
-});
 app.get('/api/admin/bookings',A,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings ORDER BY id DESC LIMIT 200').all()));
 app.get('/api/admin/overview', A, (req, res) => {
   const students = db.prepare(`SELECT u.id, u.username, u.display_name, u.active, u.created_at, u.last_seen_at, u.programme, u.grade, u.class_name, u.course_id, s.name school
