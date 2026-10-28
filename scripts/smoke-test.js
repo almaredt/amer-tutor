@@ -385,6 +385,8 @@ const server = app.listen(0, async () => {
     assert.equal(approved.status,200,JSON.stringify(approved.data));
     assert.equal(approved.data.points,100);
     assert.equal((await req('parent','GET','/api/points/me')).data.balance,beforeRefund+100);
+    assert.equal((await req('admin','GET','/api/admin/refunds')).data[0].status,'approved');
+    assert.equal((await req('parent','GET','/api/parent/refunds')).data[0].status,'approved');
     assert.equal((await req('admin','POST','/api/admin/refunds/'+request.data.id+'/decision',{approve:true})).status,409);
     assert.equal((await req('parent','GET','/api/parent/bookings')).data.find(x=>x.id===refundBooking.data.id).payment_status,'refunded');
     assert.deepEqual(db.pragma('foreign_key_check'),[],'foreign keys valid after role migration');
