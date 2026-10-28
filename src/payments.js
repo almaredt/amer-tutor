@@ -5,7 +5,9 @@ const db=require('./db');
 const key=process.env.STRIPE_SECRET_KEY;
 const secret=process.env.STRIPE_WEBHOOK_SECRET;
 const site=process.env.PUBLIC_BASE_URL;
-const commissionBps=Number(process.env.PLATFORM_COMMISSION_BPS||1500);
+const configuredBps=Number(process.env.PLATFORM_COMMISSION_BPS||1500);
+if(!Number.isInteger(configuredBps)||configuredBps<0||configuredBps>5000)throw new Error('Invalid platform commission basis points');
+const commissionBps=configuredBps;
 function configured(){return !!(key&&secret&&site&&/^https:\/\//.test(site));}
 async function checkout(booking){
  if(!configured())throw new Error('Online payment is not configured.');
