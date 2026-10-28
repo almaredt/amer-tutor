@@ -335,6 +335,14 @@ const server = app.listen(0, async () => {
     assert.equal((await req('admin','POST','/api/admin/links',{role:'teacher',actor_id:tid,student_id:uid,subject:'Math'})).status,200);
     assert.equal((await req('parent','GET','/api/parent/children/'+uid+'/progress')).status,200);
     assert.equal((await req('teacher','GET','/api/teacher/students/'+uid+'/progress')).status,200);
+    const studentInsights=await req('s','GET','/api/student/progress-insights');
+    assert.equal(studentInsights.status,200,'student analytics available');
+    assert.ok(Array.isArray(studentInsights.data.subjects)&&Array.isArray(studentInsights.data.focus));
+    assert.equal((await req('parent','GET','/api/parent/children/'+uid+'/insights')).status,200);
+    assert.equal((await req('teacher','GET','/api/teacher/students/'+uid+'/insights')).status,200);
+    assert.equal((await req('x','GET','/api/parent/children/'+uid+'/insights')).status,401);
+    assert.equal((await req('parent','GET','/api/parent/children/99999/insights')).status,404);
+
     const profile={bio:'Math teacher',subjects:['Mathematics'],grades:['9'],curricula:['MYP'],languages:['English'],rate_45_aed:100,rate_60_aed:130};
     assert.equal((await req('teacher','PUT','/api/teacher/profile',profile)).status,200);
     assert.equal((await req('parent','GET','/api/teachers')).data.length,0,'unapproved teachers hidden');
@@ -346,6 +354,13 @@ const server = app.listen(0, async () => {
     assert.equal((await req('s','POST','/api/messages/'+uid+'/'+tid,{body:'Question about homework'})).status,201);
     assert.equal((await req('teacher','GET','/api/messages/'+uid+'/'+tid)).data.length,1);
     assert.equal((await req('teacher','PUT','/api/teacher/availability',{slots:[{weekday:new Date('2099-12-15T14:00Z').getUTCDay(),start_time:'13:00',end_time:'17:00'}]})).status,200);
+    const calendar=await req('parent','GET','/api/teachers/'+tid+'/calendar?duration=45');
+    assert.equal(calendar.status,200,'parent can view teacher calendar');
+    assert.equal(calendar.data.days.length,14,'two weeks of dates');
+    assert.equal(calendar.data.timezone,'Asia/Dubai');
+    assert.equal((await req('x','GET','/api/teachers/'+tid+'/calendar?duration=45')).status,401);
+    assert.equal((await req('parent','GET','/api/teachers/'+tid+'/calendar?duration=120')).status,400);
+
     assert.equal((await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:45,start_at:'2099-12-15T14:00'})).status,201);
     assert.equal((await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:60,start_at:'2099-12-15T14:15'})).status,409,'overlapping requests rejected');
     assert.equal((await req('teacher','GET','/api/teacher/bookings')).data.length,1);
