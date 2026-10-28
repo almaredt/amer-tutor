@@ -78,3 +78,5 @@
 .market-profile-avatar img{width:100%;height:100%;object-fit:cover}
 .person-card-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .person-demo-avatar,.person-initial{display:grid;place-items:center;flex:0 0 56px;width:56px;height:56px;object-fit:cover;border:2px solid var(--border-strong,#111);background:var(--surface-blue,#eaf1ff);color:var(--text-primary,#111);font-weight:900;font-size:24px}
+
+.portal-user-heading{display:flex;align-items:center;gap:17px}.portal-user-heading .person-demo-avatar,.portal-user-heading .person-initial{width:76px;height:76px;flex-basis:76px}
