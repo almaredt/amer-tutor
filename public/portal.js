@@ -49,12 +49,18 @@ async function parent(){
    c.querySelectorAll('.book-picker').forEach(x=>x.remove());
    const el=document.createElement('section');el.className='box book-picker';
    profileEl.after(el);
-   await ParentCalendar.mount(el,t.id,children,body=>api('/api/parent/bookings',body));
+   let pending=null;try{const v=JSON.parse(sessionStorage.getItem('amer-pending-booking')||'null');if(v&&v.teacher_id===t.id)pending=v;}catch{}
+   await ParentCalendar.mount(el,t.id,children,async body=>{const result=await api('/api/parent/bookings',body);try{sessionStorage.removeItem('amer-pending-booking');}catch{}return result;},pending);
    const price=document.createElement('p');price.className='book-price';
    price.textContent='Lesson rates: '+(t.rate_45_aed??'—')+' points / 45 min · '+(t.rate_60_aed??'—')+' points / 60 min';
    el.querySelector('.book-head').after(price);
    el.scrollIntoView({behavior:'smooth',block:'start'});
  });
+ const requestedTeacher=Number(new URLSearchParams(location.search).get('teacher'));
+ if(Number.isSafeInteger(requestedTeacher)&&requestedTeacher>0){
+  const card=$('tutorMarketplace').querySelector('[data-profile="'+requestedTeacher+'"]');
+  if(card){card.click();$('tutorMarketplace').querySelector('#marketBook')?.click();}
+ }
  c.querySelectorAll('[data-cancel]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Cancel this unpaid booking?'))return;try{await api('/api/parent/bookings/'+btn.dataset.cancel+'/cancel',{});await parent();}catch(e){alert(e.message);}});
  c.querySelectorAll('[data-refund]').forEach(b=>b.onclick=async()=>{const reason=window.prompt('Reason for refund (minimum 5 characters):');if(reason===null)return;try{await api('/api/parent/bookings/'+b.dataset.refund+'/refund',{reason});await parent();}catch(e){alert(e.message);}});
  c.querySelectorAll('[data-pay]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Transfer points to Admin for this lesson?'))return;btn.disabled=true;try{await api('/api/parent/bookings/'+btn.dataset.pay+'/points',{});await parent();}catch(e){btn.disabled=false;alert(e.message);}});
