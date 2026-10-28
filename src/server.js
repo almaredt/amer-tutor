@@ -145,6 +145,70 @@ app.post('/api/flag', auth.requireUser, (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- Teacher / Parent marketplace (phase 1) ----------
+const T = auth.requireTeacher, P = auth.requireParent;
+const validId = (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0;
+const linked = (teacher, student) => !!db.prepare('SELECT 1 FROM teacher_students WHERE teacher_id=? AND student_id=?').get(teacher, student);
+const parentOf = (parent, student) => !!db.prepare('SELECT 1 FROM parent_students WHERE parent_id=? AND student_id=?').get(parent, student);
+const publicTeacher = (u) => ({ ...u, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages) });
+app.get('/api/teachers', auth.requireUser, (req, res) => res.json(db.prepare(`SELECT u.id, u.display_name, t.bio, t.subjects, t.grades, t.curricula, t.languages, t.rate_45_aed, t.rate_60_aed
+  FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.approved=1 AND u.active=1 AND u.role='teacher' ORDER BY u.display_name`).all().map(publicTeacher)));
+app.get('/api/teacher/me', T, (req, res) => {
+  const profile = db.prepare('SELECT * FROM teacher_profiles WHERE user_id=?').get(req.user.id);
+  const students = db.prepare(`SELECT DISTINCT u.id,u.display_name,u.grade,u.programme FROM teacher_students ts JOIN users u ON u.id=ts.student_id WHERE ts.teacher_id=? AND u.role='student' AND u.active=1`).all(req.user.id);
+  res.json({ profile: profile ? publicTeacher(profile) : null, students });
+});
+app.put('/api/teacher/profile', T, (req, res) => {
+  const b = req.body || {}, rate = (v) => v == null || v === '' ? null : Number(v);
+  const r45 = rate(b.rate_45_aed), r60 = rate(b.rate_60_aed);
+  if ([r45,r60].some((v) => v !== null && (!Number.isSafeInteger(v) || v < 0 || v > 100000))) return res.status(400).json({ error: 'Rates must be whole AED amounts from 0 to 100000.' });
+  const list = (key) => Array.isArray(b[key]) && b[key].length <= 30 && b[key].every((v) => typeof v === 'string' && v.length <= 80) ? JSON.stringify(b[key]) : null;
+  const subjects = list('subjects'), grades = list('grades'), curricula = list('curricula'), languages = list('languages');
+  if ([subjects,grades,curricula,languages].some((v) => v === null) || typeof b.bio !== 'string' || b.bio.length > 2000) return res.status(400).json({ error: 'Invalid profile.' });
+  db.prepare(`INSERT INTO teacher_profiles (user_id,bio,subjects,grades,curricula,languages,rate_45_aed,rate_60_aed,approved)
+    VALUES (?,?,?,?,?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET bio=excluded.bio,subjects=excluded.subjects,grades=excluded.grades,curricula=excluded.curricula,languages=excluded.languages,rate_45_aed=excluded.rate_45_aed,rate_60_aed=excluded.rate_60_aed,approved=0`).run(req.user.id,b.bio,subjects,grades,curricula,languages,r45,r60);
+  res.json({ ok:true, approved:false, message:'Profile updated; admin approval required.' });
+});
+app.get('/api/parent/children', P, (req,res) => res.json(db.prepare(`SELECT u.id,u.display_name,u.grade,u.programme FROM parent_students ps JOIN users u ON u.id=ps.student_id WHERE ps.parent_id=? AND u.role='student'`).all(req.user.id)));
+app.get('/api/parent/children/:id/progress', P, (req,res) => {
+  if (!validId(req.params.id) || !parentOf(req.user.id,Number(req.params.id))) return res.status(404).json({ error:'Child not found.' });
+  const id=Number(req.params.id);
+  const totals=db.prepare('SELECT COUNT(*) answered, COALESCE(SUM(correct),0) correct FROM answers WHERE user_id=? AND choice IS NOT NULL').get(id);
+  const sessions=db.prepare('SELECT COUNT(*) completed FROM runs WHERE user_id=? AND done_at IS NOT NULL').get(id);
+  res.json({ ...totals,...sessions });
+});
+app.get('/api/teacher/students/:id/progress', T, (req,res) => {
+  if (!validId(req.params.id) || !linked(req.user.id,Number(req.params.id))) return res.status(404).json({ error:'Student not found.' });
+  const id=Number(req.params.id);
+  const totals=db.prepare('SELECT COUNT(*) answered, COALESCE(SUM(correct),0) correct FROM answers WHERE user_id=? AND choice IS NOT NULL').get(id);
+  const sessions=db.prepare('SELECT COUNT(*) completed FROM runs WHERE user_id=? AND done_at IS NOT NULL').get(id);
+  res.json({ ...totals,...sessions });
+});
+app.get('/api/student/materials', S, (req,res) => res.json(db.prepare(`SELECT m.id,m.kind,m.title,m.body,m.due_at,m.created_at,u.display_name teacher FROM teacher_materials m JOIN users u ON u.id=m.teacher_id WHERE m.student_id=? AND u.active=1 ORDER BY m.created_at DESC LIMIT 100`).all(req.user.id)));
+app.post('/api/teacher/materials', T, (req,res) => {
+  const b=req.body||{}, id=Number(b.student_id);
+  if (!validId(id) || !linked(req.user.id,id)) return res.status(403).json({ error:'Student is not assigned to you.' });
+  if (!['lesson','assignment','exam'].includes(b.kind) || typeof b.title !== 'string' || !b.title.trim() || b.title.length>160 || typeof b.body !== 'string' || !b.body.trim() || b.body.length>20000) return res.status(400).json({ error:'Invalid material.' });
+  const due=b.due_at == null || b.due_at === '' ? null : String(b.due_at);
+  if (due && !/^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2})?$/.test(due)) return res.status(400).json({ error:'Invalid due date.' });
+  const result=db.prepare('INSERT INTO teacher_materials (teacher_id,student_id,kind,title,body,due_at) VALUES (?,?,?,?,?,?)').run(req.user.id,id,b.kind,b.title.trim(),b.body.trim(),due);
+  res.status(201).json({ id:result.lastInsertRowid });
+});
+app.get('/api/student/teachers', S, (req,res) => res.json(db.prepare(`SELECT DISTINCT u.id,u.display_name FROM teacher_students ts JOIN users u ON u.id=ts.teacher_id WHERE ts.student_id=? AND u.active=1`).all(req.user.id)));
+app.get('/api/messages/:studentId/:teacherId', auth.requireUser, (req,res) => {
+  const sid=Number(req.params.studentId),tid=Number(req.params.teacherId);
+  if (!validId(sid) || !validId(tid) || !linked(tid,sid) || !(req.user.role==='admin' || req.user.role==='student' && req.user.id===sid || req.user.role==='teacher' && req.user.id===tid)) return res.status(403).json({ error:'Not allowed.' });
+  res.json(db.prepare('SELECT id,sender_id,body,created_at FROM teacher_messages WHERE student_id=? AND teacher_id=? ORDER BY id DESC LIMIT 100').all(sid,tid).reverse());
+});
+app.post('/api/messages/:studentId/:teacherId', auth.requireUser, (req,res) => {
+  const sid=Number(req.params.studentId),tid=Number(req.params.teacherId);
+  if (!validId(sid) || !validId(tid) || !linked(tid,sid) || !(req.user.role==='student' && req.user.id===sid || req.user.role==='teacher' && req.user.id===tid)) return res.status(403).json({ error:'Not allowed.' });
+  const body=req.body && req.body.body;
+  if (typeof body!=='string' || !body.trim() || body.length>2000) return res.status(400).json({ error:'Message must be 1–2000 characters.' });
+  const result=db.prepare('INSERT INTO teacher_messages (teacher_id,student_id,sender_id,body) VALUES (?,?,?,?)').run(tid,sid,req.user.id,body.trim());
+  res.status(201).json({ id:result.lastInsertRowid });
+});
+
 // ---------- admin ----------
 const A = auth.requireAdmin;
 app.get('/api/admin/overview', A, (req, res) => {
@@ -157,6 +221,32 @@ app.get('/api/admin/overview', A, (req, res) => {
   });
   const flags = db.prepare('SELECT COUNT(*) n FROM flags WHERE resolved=0').get().n;
   res.json({ students, flags, billing: billing.get(), aiGlobal: prefs.globalOn(), ai: { available: ai.available(), mock: ai.MOCK, model: ai.MODEL, models: ai.MODELS, monthCost: ai.monthCost(), limit: ai.MONTHLY_LIMIT_USD } });
+});
+app.post('/api/admin/accounts', A, (req,res) => {
+  const b=req.body||{};
+  if (!['teacher','parent'].includes(b.role) || !auth.validUsername(b.username) || !auth.validPassword(b.password) || typeof b.display_name!=='string' || !b.display_name.trim() || b.display_name.length>60) return res.status(400).json({ error:'Invalid account details.' });
+  if (db.prepare('SELECT 1 FROM users WHERE username=?').get(b.username)) return res.status(409).json({ error:'Username already taken.' });
+  const result=db.transaction(() => {
+    const id=db.prepare('INSERT INTO users (username,display_name,role,password_hash) VALUES (?,?,?,?)').run(b.username,b.display_name.trim(),b.role,auth.hashPassword(b.password)).lastInsertRowid;
+    if (b.role==='teacher') db.prepare('INSERT INTO teacher_profiles (user_id) VALUES (?)').run(id);
+    return id;
+  })();
+  res.status(201).json({ id:result });
+});
+app.get('/api/admin/accounts', A, (req,res) => res.json(db.prepare(`SELECT u.id,u.username,u.display_name,u.role,u.active,t.approved FROM users u LEFT JOIN teacher_profiles t ON t.user_id=u.id WHERE u.role IN ('teacher','parent') ORDER BY u.role,u.display_name`).all()));
+app.post('/api/admin/teachers/:id/approve', A, (req,res) => {
+  const result=db.prepare(`UPDATE teacher_profiles SET approved=? WHERE user_id=? AND EXISTS (SELECT 1 FROM users WHERE id=? AND role='teacher')`).run(req.body && req.body.approved===true ? 1:0,Number(req.params.id),Number(req.params.id));
+  if (!result.changes) return res.status(404).json({ error:'Teacher not found.' });
+  res.json({ ok:true });
+});
+app.post('/api/admin/links', A, (req,res) => {
+  const b=req.body||{}, actor=Number(b.actor_id),student=Number(b.student_id);
+  if (!['teacher','parent'].includes(b.role) || !validId(actor) || !validId(student)) return res.status(400).json({ error:'Invalid link.' });
+  const users=db.prepare('SELECT id,role FROM users WHERE id IN (?,?) AND active=1').all(actor,student);
+  if (!users.some((u)=>u.id===actor && u.role===b.role) || !users.some((u)=>u.id===student && u.role==='student')) return res.status(400).json({ error:'Account roles do not match.' });
+  if (b.role==='parent') db.prepare('INSERT OR IGNORE INTO parent_students (parent_id,student_id) VALUES (?,?)').run(actor,student);
+  else { const subject=typeof b.subject==='string' ? b.subject.trim().slice(0,80):'';db.prepare('INSERT OR IGNORE INTO teacher_students (teacher_id,student_id,subject) VALUES (?,?,?)').run(actor,student,subject); }
+  res.json({ ok:true });
 });
 app.get('/api/admin/options', A, (req, res) => res.json(profiles.options()));
 const billing = require('./billing');
