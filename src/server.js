@@ -240,6 +240,10 @@ app.post('/api/parent/bookings',P,(req,res)=>{
  if(!t)return res.status(404).json({error:'Teacher not available.'});
  const amount=minutes===45?t.rate_45_aed:t.rate_60_aed;
  if(!Number.isSafeInteger(amount)||amount<0)return res.status(400).json({error:'Rate not set.'});
+ const weekday=new Date(b.start_at+'Z').getUTCDay();
+ const hhmm=b.start_at.slice(11),endMinutes=Number(hhmm.slice(0,2))*60+Number(hhmm.slice(3))+minutes;
+ const slots=db.prepare('SELECT start_time,end_time FROM teacher_availability WHERE teacher_id=? AND weekday=?').all(tid,weekday);
+ if(!slots.some(x=>hhmm>=x.start_time&&endMinutes<=Number(x.end_time.slice(0,2))*60+Number(x.end_time.slice(3))))return res.status(409).json({error:'Teacher is unavailable at this time.'});
  const conflicts=db.prepare("SELECT start_at,minutes FROM lesson_bookings WHERE teacher_id=? AND status IN ('requested','confirmed')").all(tid);
  if(conflicts.some(x=>{const a=Date.parse(x.start_at+'+04:00');return start<a+x.minutes*60000&&a<start+minutes*60000;}))return res.status(409).json({error:'Time slot unavailable.'});
  const id=db.prepare('INSERT INTO lesson_bookings(parent_id,student_id,teacher_id,start_at,minutes,amount_aed) VALUES(?,?,?,?,?,?)').run(req.user.id,sid,tid,b.start_at,minutes,amount).lastInsertRowid;
