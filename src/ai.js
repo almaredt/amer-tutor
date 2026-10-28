@@ -6,13 +6,13 @@ const db = require('./db');
 
 // Model per job, to keep cost down: Opus writes new questions (accuracy matters most),
 // Sonnet explains and answers topic questions, Haiku suggests marks against the mark scheme.
-const MODEL = process.env.CLAUDE_MODEL || 'gpt-4.1';
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1';
 const MODELS = {
   generate: MODEL,
-  explain: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini',
+  explain: process.env.OPENAI_MODEL_EXPLAIN || 'gpt-4.1-mini',
   ask: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini',
-  mark: process.env.CLAUDE_MODEL_MARK || 'gpt-4.1-mini',
-  photo: process.env.CLAUDE_MODEL_PHOTO || 'gpt-4.1-mini', // reading handwriting needs a stronger model than Haiku
+  mark: process.env.OPENAI_MODEL_MARK || 'gpt-4.1-mini',
+  photo: process.env.OPENAI_MODEL_PHOTO || 'gpt-4.1-mini', // reading handwriting needs a stronger model than Haiku
   level: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini', // MYP level judgement for criterion tasks
 };
 const modelFor = (kind) => MODELS[kind] || MODEL;
