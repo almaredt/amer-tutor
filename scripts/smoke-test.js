@@ -339,6 +339,7 @@ const server = app.listen(0, async () => {
     assert.equal((await req('parent','POST','/api/messages/'+uid+'/'+tid,{body:'hello'})).status,403);
     assert.equal((await req('s','POST','/api/messages/'+uid+'/'+tid,{body:'Question about homework'})).status,201);
     assert.equal((await req('teacher','GET','/api/messages/'+uid+'/'+tid)).data.length,1);
+    assert.equal((await req('teacher','PUT','/api/teacher/availability',{slots:[{weekday:new Date('2099-12-15T14:00Z').getUTCDay(),start_time:'13:00',end_time:'17:00'}]})).status,200);
     assert.equal((await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:45,start_at:'2099-12-15T14:00'})).status,201);
     assert.equal((await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:60,start_at:'2099-12-15T14:15'})).status,409,'overlapping requests rejected');
     assert.equal((await req('teacher','GET','/api/teacher/bookings')).data.length,1);
