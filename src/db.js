@@ -225,6 +225,33 @@ CREATE INDEX IF NOT EXISTS idx_material_student ON teacher_materials(student_id,
 CREATE INDEX IF NOT EXISTS idx_messages_student ON teacher_messages(student_id, teacher_id, created_at);
 `);
 
+// Bookings and payment ledger: no money movement until a verified PSP is integrated.
+db.exec(`
+CREATE TABLE IF NOT EXISTS lesson_bookings (
+ id INTEGER PRIMARY KEY,
+ parent_id INTEGER NOT NULL REFERENCES users(id),
+ student_id INTEGER NOT NULL REFERENCES users(id),
+ teacher_id INTEGER NOT NULL REFERENCES users(id),
+ start_at TEXT NOT NULL,
+ minutes INTEGER NOT NULL CHECK (minutes IN (45,60)),
+ amount_aed INTEGER NOT NULL CHECK (amount_aed >= 0),
+ status TEXT NOT NULL DEFAULT 'requested' CHECK(status IN ('requested','confirmed','completed','cancelled')),
+ payment_status TEXT NOT NULL DEFAULT 'unpaid' CHECK(payment_status IN ('unpaid','pending','paid','refunded')),
+ created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_booking_teacher_time ON lesson_bookings(teacher_id,start_at);
+CREATE TABLE IF NOT EXISTS teacher_payouts (
+ id INTEGER PRIMARY KEY,
+ teacher_id INTEGER NOT NULL REFERENCES users(id),
+ booking_id INTEGER NOT NULL UNIQUE REFERENCES lesson_bookings(id),
+ amount_aed INTEGER NOT NULL CHECK(amount_aed>=0),
+ status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid')),
+ paid_at TEXT,
+ note TEXT,
+ created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
 // Seed / refresh the hand-written bank (fixes in question-bank.js reach the DB on restart).
 function seedBank() {
   const upsert = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, course_id)
