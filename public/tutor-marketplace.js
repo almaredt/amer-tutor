@@ -21,16 +21,35 @@ function mount(el,teachers,onBook){
  function profile(id){
   const t=teachers.find(x=>x.id===id);if(!t)return;
   selected=id;
-  detail.innerHTML='<section class="market-profile" aria-label="Tutor details"><div class="market-profile-top"><div class="market-profile-avatar">'+safe(initials(t.display_name))+'</div><div><span class="market-approved">✓ ADMIN APPROVED</span><h3>'+safe(t.display_name)+'</h3><p>'+safe((t.subjects||[]).join(' · '))+'</p></div><button type="button" id="marketClose">✕ Close</button></div><div class="market-profile-columns"><div><h4>About this tutor</h4><p class="market-full-bio">'+safe(t.bio||'This tutor has not added a biography yet.')+'</p><h4>Subjects</h4><p>'+safe((t.subjects||[]).join(', ')||'Not specified')+'</p><h4>Grades & curriculum</h4><p>'+safe((t.grades||[]).join(', ')||'Not specified')+' · '+safe((t.curricula||[]).join(', ')||'Not specified')+'</p><h4>Languages</h4><p>'+safe((t.languages||[]).join(', ')||'Not specified')+'</p></div><aside class="market-profile-book"><h4>Lesson rates</h4><p><strong>'+safe(t.rate_45_aed??'—')+'</strong> points / 45 minutes</p><p><strong>'+safe(t.rate_60_aed??'—')+'</strong> points / 60 minutes</p><p>Available times are checked before booking. All times use Dubai time.</p><button type="button" id="marketBook" class="primary">See available times →</button></aside></div></section>';
-  detail.querySelector('#marketClose').onclick=()=>{detail.innerHTML='';selected=null;};
+  grid.querySelectorAll('.market-card').forEach(card=>card.classList.toggle('market-card-active',Number(card.querySelector('[data-profile]')?.dataset.profile)===id));
+  const portrait=t.photo_url?'<img src="'+safe(t.photo_url)+'" alt="Illustrated tutor avatar">':'<span>'+safe(initials(t.display_name))+'</span>';
+  detail.innerHTML='<section class="market-profile" aria-label="Tutor details">'+
+   '<div class="market-profile-top"><div class="market-profile-avatar">'+portrait+'</div><div class="market-profile-name"><span class="market-approved">✓ APPROVED'+(t.is_demo?' · DEMO PROFILE':'')+'</span><h3>'+safe(t.display_name)+'</h3><p>'+safe((t.subjects||[]).join(' · ')||'Tutor')+'</p></div></div>'+
+   '<div class="market-profile-quick"><span>▤ '+safe((t.grades||[]).slice(0,2).join(' / ')||'All grades')+'</span><span>⌂ '+safe((t.curricula||[]).slice(0,2).join(' / ')||'Curriculum not listed')+'</span><span>◉ '+safe((t.languages||[]).slice(0,2).join(', ')||'Languages not listed')+'</span></div>'+
+   '<div class="market-profile-rates"><div><small>45 MINUTES</small><strong>'+safe(t.rate_45_aed??'—')+' <em>points</em></strong></div><div><small>60 MINUTES</small><strong>'+safe(t.rate_60_aed??'—')+' <em>points</em></strong></div></div>'+
+   '<div class="market-profile-tabs" role="tablist" aria-label="Tutor profile sections"><button type="button" class="active" role="tab" aria-selected="true" data-info="about">About</button><button type="button" role="tab" aria-selected="false" data-info="subjects">Subjects</button><button type="button" role="tab" aria-selected="false" data-info="availability">Availability</button></div>'+
+   '<div class="market-info-panel" id="marketInfoPanel"></div>'+
+   '<button type="button" id="marketBook" class="market-book-btn primary">See available times ↗</button>'+
+   '<p class="market-book-note">Dubai time · Sign in only when you book a lesson.</p>'+
+   '</section>';
+  const info=detail.querySelector('#marketInfoPanel');
+  const panels={
+   about:'<h4>About '+safe(t.display_name)+'</h4><p class="market-full-bio">'+safe(t.bio||'This tutor has not written an introduction yet.')+'</p><h4>Languages</h4><p>'+safe((t.languages||[]).join(' · ')||'Not specified')+'</p>',
+   subjects:'<h4>Subjects taught</h4><div class="market-info-tags">'+(t.subjects||[]).map(x=>'<span>'+safe(x)+'</span>').join('')+'</div><h4>Grade levels</h4><p>'+safe((t.grades||[]).join(' · ')||'Not specified')+'</p><h4>Curriculum</h4><p>'+safe((t.curricula||[]).join(' · ')||'Not specified')+'</p>',
+   availability:'<h4>Available teaching hours</h4><p>Choose “See available times” to check the tutor’s weekly schedule. Exact booking times are confirmed separately.</p><div class="market-weekdays"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>'
+  };
+  function showInfo(key){info.innerHTML=panels[key];detail.querySelectorAll('[data-info]').forEach(b=>{const on=b.dataset.info===key;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));});}
+  detail.querySelectorAll('[data-info]').forEach(b=>b.onclick=()=>showInfo(b.dataset.info));
   detail.querySelector('#marketBook').onclick=()=>onBook(t,detail.querySelector('.market-profile'));
-  detail.scrollIntoView({behavior:'smooth',block:'start'});
+  showInfo('about');
+  if(el.dataset.marketMode==='public'||window.matchMedia('(max-width:900px)').matches)detail.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
  function reset(){search=subject=grade=curriculum='';sort='name';max=Infinity;for(const id of ['marketSearch','marketSubject','marketGrade','marketCurriculum'])el.querySelector('#'+id).value='';el.querySelector('#marketSort').value='name';el.querySelector('#marketBudget').value=maxPrice;el.querySelector('#marketBudgetLabel').textContent='Any';render();}
  for(const [id,fn] of [['marketSearch',v=>search=v.toLowerCase().trim()],['marketSubject',v=>subject=v],['marketGrade',v=>grade=v],['marketCurriculum',v=>curriculum=v],['marketSort',v=>sort=v]])el.querySelector('#'+id).addEventListener(id==='marketSearch'?'input':'change',e=>{fn(e.target.value);render();});
  el.querySelector('#marketBudget').addEventListener('input',e=>{max=Number(e.target.value)>=maxPrice?Infinity:Number(e.target.value);el.querySelector('#marketBudgetLabel').textContent=max===Infinity?'Any':max;render();});
  el.querySelector('#marketReset').onclick=reset;
  render();
+ if(teachers.length)profile(teachers[0].id);
 }
 window.TutorMarketplace={mount};
 })();
