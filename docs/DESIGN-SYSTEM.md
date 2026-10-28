@@ -5,11 +5,13 @@ The default and initial visual language is **minimal, accessible neo-brutalism**
 
 ## Verified source reference
 - `almaredt/wholesale-shop/app.css`: white paper surface, subtle 20px squared grid background, black typography, Roboto Mono.
-- `almaredt/wholesale-shop/components/admin/admin.css`: explicitly calls its visual system “print-shop brutalist”; 2px black card borders, square corners, hard offset black shadows, accent yellow (fallback #ffec00), 24px grid background, strong focus indicators.
+- `almaredt/wholesale-shop/components/admin/admin.css`: explicitly calls its visual system “print-shop brutalist”; 2px black card borders, square corners, hard offset black shadows, accent yellow in the reference (fallback #ffec00); Amer Tutor intentionally substitutes pen-blue, 24px grid background, strong focus indicators.
 
 ## Design tokens
 - Paper: `#fff`; ink/borders: `#000`; muted surface: `#f6f6f3`.
-- Default accent: `#ffec00` (yellow), used sparingly for primary actions, current state and focus; never as a large distracting page fill.
+- Default accent: **BIC ballpoint pen blue** `#2F5FB8`, used sparingly for primary actions, current state and focus; never as a large distracting page fill.
+- Accent hover: `#244B93`; soft blue highlight: `#EAF1FF`. Keep black text on light-blue surfaces and white text on the saturated blue primary button to maintain contrast.
+- Yellow is **not** part of the default Amer Tutor palette; the wholesale-shop yellow is a reference detail, not a color to copy.
 - Background: subtle 20–24px grid, low opacity. Avoid noisy textures in reading/exam areas.
 - Corners: `0`; borders: `2px solid #000` on major cards, inputs and buttons.
 - Shadows: hard `4px 4px 0 #000` for cards, larger only for prominent hero/CTA elements.
