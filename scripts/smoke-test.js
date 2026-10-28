@@ -151,6 +151,12 @@ const server = app.listen(0, async () => {
     const darkCSS=await (await fetch(base+'/theme-dark.css')).text();
     assert.ok(darkCSS.includes('prefers-color-scheme:dark')&&darkCSS.includes('data-theme="dark"'),'automatic and manual dark modes supported');
     assert.ok(darkCSS.includes('.q .opt:disabled'),'disabled answer contrast is explicitly protected');
+    const publicTutors=await (await fetch(base+'/api/public/teachers')).json();
+    assert.ok(Array.isArray(publicTutors),'public directory is an array');
+    assert.ok(publicTutors.every(t=>!('username' in t)&&!('password_hash' in t)),'no private teacher account fields in directory');
+    const portalHTML=await (await fetch(base+'/portal')).text();
+    assert.ok(portalHTML.includes('/tutor-marketplace.js')&&portalHTML.includes('/portal-workspace.js'),'marketplace and workspaces loaded');
+    assert.ok((await (await fetch(base+'/')).text()).includes('homeTutorGrid'),'home has searchable tutor directory');
     const landing = await (await fetch(base + '/')).text();
     assert.ok(landing.includes('LEARN') && landing.includes('/login'), 'public landing page available');
     assert.ok((await (await fetch(base + '/login')).text()).includes('loginRoot'), 'dedicated login page available');
