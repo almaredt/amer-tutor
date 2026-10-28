@@ -1,0 +1,33 @@
+/* Admin workspace: unified with the student neo-brutalist design */
+body:has(#view){background:#fff}
+#root:has(#view){max-width:1280px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;background:#fff;border:2px solid #111;box-shadow:6px 6px 0 #111;padding:22px 26px;margin-bottom:28px}
+.topbar .label{font-family:Sora,system-ui,sans-serif;font-weight:900;font-size:20px;letter-spacing:-.04em;color:#2f5fb8;text-transform:uppercase}
+.topbar .label::before{content:'▦';display:inline-grid;place-items:center;background:#2f5fb8;color:#fff;border:2px solid #111;width:38px;height:38px;margin-right:12px}
+.topbar .who{font-weight:800}
+#view>header{background:#fff;border:2px solid #111;box-shadow:5px 5px 0 #111;padding:24px;margin-bottom:28px}
+#view>header h1{font-size:clamp(30px,4vw,46px);font-weight:900}
+#view .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:22px 0 30px}
+#view .tile{background:#fff;border:2px solid #111;box-shadow:5px 5px 0 #111;border-radius:0!important;padding:24px;display:flex;flex-direction:column;gap:10px}
+#view .tile:nth-child(2){background:#eaf1ff}
+#view .tile>b{font:800 clamp(26px,3vw,43px) Sora,sans-serif;color:#2f5fb8}
+#view .section,#view .panel,#marketplaceAdmin{background:#fff;border:2px solid #111;border-radius:0!important;box-shadow:5px 5px 0 #111;padding:24px;margin-bottom:26px}
+#view .table-wrap{overflow-x:auto;border:2px solid #111;background:#fff;box-shadow:4px 4px 0 #111;margin:20px 0}
+#view table{border-collapse:collapse;width:100%}
+#view th{background:#eaf1ff;color:#111;font:800 12px "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.04em;padding:14px}
+#view td{padding:14px;border-bottom:1px solid #111;vertical-align:middle}
+#view tbody tr:hover{background:#f1f5ff}
+#view tr.click{cursor:pointer}
+#view .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:16px;margin:18px 0}
+#view .field{display:block;font-weight:800}
+#view input,#view select,#view textarea{border:2px solid #111!important;border-radius:0!important;background:#fff;color:#111;padding:12px;max-width:100%;width:100%;margin-top:6px}
+#view button,#view .btn,.topbar button{border:2px solid #111!important;border-radius:0!important;box-shadow:3px 3px 0 #111;font-weight:800;background:#fff;color:#111;padding:10px 15px}
+#view .btn.primary,#view button.primary{background:#2f5fb8;color:#fff}
+#view button:hover,.topbar button:hover{transform:translate(2px,2px);box-shadow:1px 1px 0 #111}
+#view button:focus-visible,#view input:focus-visible,#view select:focus-visible{outline:3px solid #2f5fb8;outline-offset:3px}
+#view .subj-group,#view .subj,#view .meter,#view .tag{border-radius:0!important}
+#view .meter{border:1px solid #111;background:#eaf1ff;height:12px}
+#view .meter i{background:#2f5fb8}
+#view .subj-group{border:2px solid #111;padding:14px;margin:10px 0}
+#marketplaceAdmin h3{font-family:Sora,sans-serif;font-size:23px;border-bottom:2px solid #111;padding-bottom:12px}
+@media(max-width:800px){#view .tiles{grid-template-columns:1fr}.topbar{padding:14px;flex-wrap:wrap}#view>header{padding:16px}#view .section,#view .panel,#marketplaceAdmin{padding:16px}#view th,#view td{padding:9px;font-size:13px}}
