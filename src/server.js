@@ -168,6 +168,14 @@ app.get('/api/public/teachers',(req,res)=>{
  FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.approved=1 AND u.active=1 AND u.role='teacher' ORDER BY u.display_name LIMIT 100`).all();
  res.json(rows.map(publicTeacher));
 });
+// Public recurring weekly teaching hours; no student or booking data is exposed.
+app.get('/api/public/teachers/:id/availability',(req,res)=>{
+ const id=Number(req.params.id);
+ if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Invalid tutor'});
+ const tutor=db.prepare("SELECT 1 FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND t.approved=1 AND u.active=1 AND u.role='teacher'").get(id);
+ if(!tutor)return res.status(404).json({error:'Tutor not found'});
+ res.json(db.prepare('SELECT weekday,start_time,end_time FROM teacher_availability WHERE teacher_id=? ORDER BY weekday,start_time').all(id));
+});
 app.get('/api/teachers', auth.requireUser, (req, res) => res.json(db.prepare(`SELECT u.id, u.username, u.display_name, t.bio, t.subjects, t.grades, t.curricula, t.languages, t.rate_45_aed, t.rate_60_aed
   FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.approved=1 AND u.active=1 AND u.role='teacher' ORDER BY u.display_name`).all().map(publicTeacher)));
 app.get('/api/teachers/:id/calendar',auth.requireUser,(req,res)=>{
