@@ -18,3 +18,63 @@
 .av-feedback{font-weight:700;min-height:1.5em;color:#244b93}
 .portal .av-save{background:#2f5fb8;color:#fff}
 @media(max-width:680px){.availability-head{display:block}.availability-actions{margin-top:12px}.availability-grid{grid-template-columns:60px repeat(7,minmax(65px,1fr));min-width:540px}}
+
+/* Parent booking: real availability, accessible date/time picker */
+.book-picker{border-top:7px solid #2f5fb8!important}
+.book-head{display:flex;justify-content:space-between;align-items:start;gap:20px}
+.book-head h3{font-size:1.4rem;margin:0 0 6px}
+.book-head p{color:#555;margin:0 0 18px}
+.portal .book-close{font-size:19px;padding:7px 13px}
+.book-duration{display:flex;gap:10px;margin:12px 0 25px}
+.portal .book-duration button.selected,.portal .book-day.selected,.portal .book-time.selected{background:#2f5fb8!important;color:#fff!important}
+.book-week-label{font:800 12px "JetBrains Mono",monospace;letter-spacing:.08em;margin-bottom:12px}
+.book-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:25px}
+.portal .book-day{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;min-height:90px}
+.book-day span,.book-day small{font:700 12px "JetBrains Mono",monospace}
+.book-day strong{font:800 27px Sora,sans-serif}
+.portal .book-day:disabled{opacity:.35;background:#f4f4f4;box-shadow:none}
+.book-times-title{margin:12px 0}
+.book-times{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px}
+.portal .book-time{padding:13px 7px}
+.book-empty{color:#555}
+.book-checkout{border-top:2px solid #111;margin-top:22px;padding-top:20px}
+.book-selection{background:#eaf1ff;border:2px solid #111;padding:14px;margin:16px 0;font-weight:800}
+.book-feedback{min-height:22px;color:#244b93;font-weight:700}
+.portal .book-submit:disabled{opacity:.5}
+/* Evidence-based analytics */
+.insight-dashboard{margin-top:20px;border:2px solid #111;background:#fff;padding:22px;box-shadow:5px 5px 0 #111}
+.insight-heading{border-bottom:2px solid #111;padding-bottom:15px}
+.insight-heading h3{font-size:clamp(22px,3vw,30px);margin:7px 0}
+.insight-heading p{margin:0;color:#555}
+.insight-eyebrow{font:800 11px "JetBrains Mono",monospace;color:#2f5fb8}
+.insight-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}
+.insight-stats>div{background:#eaf1ff;border:2px solid #111;padding:16px;display:flex;flex-direction:column;gap:7px}
+.insight-stats span{font-weight:800}
+.insight-stats strong{font:800 clamp(24px,3vw,36px) Sora,sans-serif;color:#2f5fb8}
+.insight-stats small{color:#555}
+.insight-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:22px}
+.insight-cols>section{border:2px solid #111;padding:18px;min-width:0}
+.insight-cols h4{font:800 20px Sora,sans-serif;margin:0 0 15px}
+.insight-topic{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0 0 16px}
+.insight-topic b{font-size:14px}
+.insight-topic small{display:block;color:#555;font-size:12px;margin-top:3px}
+.insight-topic strong{font:800 19px Sora,sans-serif}
+.insight-meter{grid-column:1/-1;display:block;width:100%;height:13px;appearance:none;border:1px solid #111;background:#eaf1ff}
+.insight-meter::-webkit-progress-bar{background:#eaf1ff}
+.insight-meter::-webkit-progress-value{background:#2f5fb8}
+.insight-meter::-moz-progress-bar{background:#2f5fb8}
+.insight-focus{border-top:7px solid #df9b31!important}
+.insight-strength{border-top:7px solid #28875b!important}
+.insight-chart{height:150px;display:flex;gap:5px;align-items:end;overflow-x:auto;padding:10px 0}
+.insight-chart-bar{min-width:26px;flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%}
+.insight-chart-bar progress{writing-mode:vertical-lr;direction:rtl;appearance:none;height:100%;width:16px;border:1px solid #111;background:#eaf1ff}
+.insight-chart-bar progress::-webkit-progress-bar{background:#eaf1ff}
+.insight-chart-bar progress::-webkit-progress-value{background:#2f5fb8}
+.insight-chart-bar progress::-moz-progress-bar{background:#2f5fb8}
+.insight-chart-bar span{font:700 9px monospace;white-space:nowrap}
+.insight-note{font-size:12px;color:#555}
+.insight-guidance{margin-top:20px;border:2px solid #111;background:#eaf1ff;padding:18px}
+.insight-guidance b{font:800 12px "JetBrains Mono",monospace;color:#244b93}
+.insight-guidance p{margin:8px 0 0}
+@media(max-width:800px){.book-days{grid-template-columns:repeat(7,minmax(62px,1fr));overflow-x:auto}.insight-cols{grid-template-columns:1fr}.insight-stats{grid-template-columns:1fr 1fr}.insight-dashboard{padding:14px}}
+@media(max-width:480px){.book-days{gap:5px}.portal .book-day{min-height:75px}.book-day strong{font-size:20px}.insight-stats{grid-template-columns:1fr}}
