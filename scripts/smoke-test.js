@@ -370,6 +370,23 @@ const server = app.listen(0, async () => {
     assert.equal(cancelReq.status,201);
     assert.equal((await req('parent','POST','/api/parent/bookings/'+cancelReq.data.id+'/cancel',{})).status,200);
     assert.equal((await req('parent','GET','/api/parent/bookings')).data.find(x=>x.id===cancelReq.data.id).status,'cancelled');
+    // Refund lifecycle on a separate paid booking, preserving 85/15 settlement.
+    const refundBooking=await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:45,start_at:'2099-12-15T15:00'});
+    assert.equal(refundBooking.status,201);
+    assert.equal((await req('teacher','POST','/api/teacher/bookings/'+refundBooking.data.id+'/confirm',{})).status,200);
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+refundBooking.data.id+'/points',{})).status,200);
+    const beforeRefund=(await req('parent','GET','/api/points/me')).data.balance;
+    const request=await req('parent','POST','/api/parent/bookings/'+refundBooking.data.id+'/refund',{reason:'Schedule changed'});
+    assert.equal(request.status,201,JSON.stringify(request.data));
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+refundBooking.data.id+'/refund',{reason:'Schedule changed'})).status,409);
+    assert.equal((await req('teacher','POST','/api/teacher/bookings/'+refundBooking.data.id+'/complete',{})).status,409);
+    assert.equal((await req('parent','POST','/api/admin/refunds/'+request.data.id+'/decision',{approve:true})).status,403);
+    const approved=await req('admin','POST','/api/admin/refunds/'+request.data.id+'/decision',{approve:true});
+    assert.equal(approved.status,200,JSON.stringify(approved.data));
+    assert.equal(approved.data.points,100);
+    assert.equal((await req('parent','GET','/api/points/me')).data.balance,beforeRefund+100);
+    assert.equal((await req('admin','POST','/api/admin/refunds/'+request.data.id+'/decision',{approve:true})).status,409);
+    assert.equal((await req('parent','GET','/api/parent/bookings')).data.find(x=>x.id===refundBooking.data.id).payment_status,'refunded');
     assert.deepEqual(db.pragma('foreign_key_check'),[],'foreign keys valid after role migration');
 
     // pages served with security headers
