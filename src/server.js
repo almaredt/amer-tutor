@@ -169,6 +169,14 @@ app.get('/api/public/teachers',(req,res)=>{
  res.json(rows.map(publicTeacher));
 });
 // Public recurring weekly teaching hours; no student or booking data is exposed.
+// Anonymous users may view real free slots, but must authenticate to request a booking.
+app.get('/api/public/teachers/:id/calendar',(req,res)=>{
+ const id=Number(req.params.id),duration=Number(req.query.duration||45);
+ if(!Number.isSafeInteger(id)||id<=0||![45,60].includes(duration))return res.status(400).json({error:'Invalid tutor or duration'});
+ const approved=db.prepare("SELECT 1 FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND t.approved=1 AND u.active=1 AND u.role='teacher'").get(id);
+ if(!approved)return res.status(404).json({error:'Tutor unavailable'});
+ res.set('Cache-Control','no-store').json(bookingCalendar.get(id,duration));
+});
 app.get('/api/public/teachers/:id/availability',(req,res)=>{
  const id=Number(req.params.id);
  if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Invalid tutor'});
