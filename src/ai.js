@@ -19,7 +19,7 @@ const modelFor = (kind) => MODELS[kind] || MODEL;
 const MOCK = process.env.AI_MOCK === '1';
 const client = !MOCK && process.env.OPENAI_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 // USD per million tokens [input, output]. Update if prices change: https://platform.claude.com/docs/en/about-claude/pricing
-const PRICES = { 'gpt-4.1': [4, 20], 'gpt-4.1-mini': [2, 10], 'gpt-4.1-mini': [0.1, 0.5] };
+const PRICES = { 'gpt-4.1': [2, 8], 'gpt-4.1-mini': [0.4, 1.6] };
 const MONTHLY_LIMIT_USD = Number(process.env.AI_MONTHLY_LIMIT_USD || 10);
 
 const available = () => MOCK || !!client;
