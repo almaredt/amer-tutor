@@ -1,7 +1,7 @@
 // Claude integration: new practice questions, explanations, and suggested marks for written answers.
 // Without ANTHROPIC_API_KEY the app still works with the question bank only.
 // AI_MOCK=1 returns fake answers, for testing without spending anything.
-const { Anthropic } = require('@anthropic-ai/sdk');
+const { OpenAIAdapter: Anthropic } = require('./openai-adapter');
 const db = require('./db');
 
 // Model per job, to keep cost down: Opus writes new questions (accuracy matters most),
@@ -17,7 +17,7 @@ const MODELS = {
 };
 const modelFor = (kind) => MODELS[kind] || MODEL;
 const MOCK = process.env.AI_MOCK === '1';
-const client = !MOCK && process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+const client = !MOCK && process.env.OPENAI_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 // USD per million tokens [input, output]. Update if prices change: https://platform.claude.com/docs/en/about-claude/pricing
 const PRICES = { 'claude-opus-5-5': [4, 20], 'claude-sonnet-5-5': [2, 10], 'claude-haiku-5-5': [0.1, 0.5] };
 const MONTHLY_LIMIT_USD = Number(process.env.AI_MONTHLY_LIMIT_USD || 10);
