@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node --env-file=.env src/server.js",
     "create-admin": "node --env-file=.env scripts/create-admin.js",
-    "test": "node scripts/smoke-test.js"
+    "test": "node scripts/smoke-test.js",
+    "seed-demo": "node --env-file=.env scripts/seed-demo.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
