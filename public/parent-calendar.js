@@ -22,7 +22,7 @@
    catch(e){feedback.textContent=e.message;dayHost.innerHTML='';timeHost.innerHTML='';}
   }
   el.querySelectorAll('[data-duration]').forEach(b=>b.onclick=()=>{duration=Number(b.dataset.duration);el.querySelectorAll('[data-duration]').forEach(x=>x.classList.toggle('selected',x===b));load();});
-  el.querySelector('form').onsubmit=async e=>{e.preventDefault();if(!selectedTime)return;submit.disabled=true;feedback.textContent='Sending request…';try{const f=new FormData(e.target);const result=await onBook({teacher_id:teacherId,student_id:Number(f.get('student_id')),minutes:duration,start_at:selectedTime});feedback.textContent='Request sent! '+result.amount_aed+' points · Await teacher confirmation.';await load();}catch(ex){feedback.textContent=ex.message;submit.disabled=false;await load();}};
+  el.querySelector('form').onsubmit=async e=>{e.preventDefault();if(!selectedTime)return;submit.disabled=true;feedback.textContent='Sending request…';try{const f=new FormData(e.target);const result=await onBook({teacher_id:teacherId,student_id:Number(f.get('student_id')),minutes:duration,start_at:selectedTime});await load();feedback.textContent='✓ Request sent! '+result.amount_aed+' points · Await teacher confirmation.';}catch(ex){feedback.textContent=ex.message;submit.disabled=false;await load();}};
   await load();
  }
  window.ParentCalendar={mount};
