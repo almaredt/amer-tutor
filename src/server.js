@@ -211,6 +211,9 @@ app.post('/api/messages/:studentId/:teacherId', auth.requireUser, (req,res) => {
 
 // ---------- admin ----------
 const A = auth.requireAdmin;
+app.get('/api/parent/bookings',P,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE parent_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
+app.get('/api/teacher/bookings',T,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE teacher_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
+app.get('/api/admin/bookings',A,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings ORDER BY id DESC LIMIT 200').all()));
 app.get('/api/admin/overview', A, (req, res) => {
   const students = db.prepare(`SELECT u.id, u.username, u.display_name, u.active, u.created_at, u.last_seen_at, u.programme, u.grade, u.class_name, u.course_id, s.name school
     FROM users u LEFT JOIN schools s ON s.id = u.school_id WHERE u.role='student' ORDER BY s.name, u.grade, u.display_name`).all().map((u) => {
