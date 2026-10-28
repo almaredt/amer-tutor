@@ -1,0 +1,107 @@
+/* AMER TUTOR · accessible dark mode
+   Loaded last on every page. Automatic system mode + explicit ui-theme setting.
+   Brutalist geometry stays intact; semantic status colors keep WCAG-readable text. */
+:root{
+ --surface:#fff;--surface-alt:#f6f8fc;--surface-blue:#eaf1ff;
+ --text-primary:#111;--text-secondary:#414141;--border-strong:#111;
+ --shadow-ink:#111;--accent:#2f5fb8;--accent-text:#fff;
+ --success-bg:#e5f5eb;--success-fg:#124f35;
+ --error-bg:#ffe8e5;--error-fg:#8a231d;
+}
+@media(prefers-color-scheme:dark){
+ :root:not([data-theme="light"]){
+ --surface:#1b2434;--surface-alt:#243147;--surface-blue:#243b61;
+ --text-primary:#f6f8ff;--text-secondary:#cbd5e5;--border-strong:#a9bddb;
+ --shadow-ink:#070b13;--accent:#79aaff;--accent-text:#071424;
+ --success-bg:#163c30;--success-fg:#c1f5d8;
+ --error-bg:#512b31;--error-fg:#ffe1df;
+ --bg:#101722;--paper:#1b2434;--ink:#f6f8ff;--muted:#cbd5e5;
+ --line:#a9bddb;--grid:rgba(152,181,235,.075);
+ --math:#79aaff;--math-bg:#243b61;--phys:#79aaff;--phys-bg:#243b61;
+ --chem:#79aaff;--chem-bg:#243b61;--mock:#79aaff;--mock-bg:#243b61;
+ --eng:#79aaff;--eng-bg:#243b61;--oth:#79aaff;--oth-bg:#243b61;
+ --good:#c1f5d8;--good-bg:#163c30;--bad:#ffe1df;--bad-bg:#512b31;
+ --warn:#ffd18b;--accent-soft:#243b61;--shadow:5px 5px 0 #070b13;
+ color-scheme:dark;
+ }
+}
+:root[data-theme="dark"]{
+ --surface:#1b2434;--surface-alt:#243147;--surface-blue:#243b61;
+ --text-primary:#f6f8ff;--text-secondary:#cbd5e5;--border-strong:#a9bddb;
+ --shadow-ink:#070b13;--accent:#79aaff;--accent-text:#071424;
+ --success-bg:#163c30;--success-fg:#c1f5d8;
+ --error-bg:#512b31;--error-fg:#ffe1df;
+ --bg:#101722;--paper:#1b2434;--ink:#f6f8ff;--muted:#cbd5e5;
+ --line:#a9bddb;--grid:rgba(152,181,235,.075);
+ --math:#79aaff;--math-bg:#243b61;--phys:#79aaff;--phys-bg:#243b61;
+ --chem:#79aaff;--chem-bg:#243b61;--mock:#79aaff;--mock-bg:#243b61;
+ --eng:#79aaff;--eng-bg:#243b61;--oth:#79aaff;--oth-bg:#243b61;
+ --good:#c1f5d8;--good-bg:#163c30;--bad:#ffe1df;--bad-bg:#512b31;
+ --warn:#ffd18b;--accent-soft:#243b61;--shadow:5px 5px 0 #070b13;
+ color-scheme:dark;
+}
+@media(prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) body{background-color:var(--bg)!important;color:var(--ink)!important;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px)!important}
+}
+:root[data-theme="dark"] body{background-color:var(--bg)!important;color:var(--ink)!important;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px)!important}
+/* Theme the actual component surfaces rather than applying opacity to the page. */
+:root[data-theme="dark"] :is(.card,.panel,.box,.start,.q,.result,.alert,.login,.stat,.tile,.modal-content,.portal .box,.wrap>header,.portal>header,.site-nav,.role-card,.feature-stack>div,.eyebrow,.nav-cta,.hero-art,.art-note,.auth-layout .login,.insight-dashboard,.insight-cols>section,.insight-topic,.topbar,#view>header,#view .tile,#view .section,#view .panel,#marketplaceAdmin,.book-picker,.book-selection,.insight-guidance),
+:root[data-theme="dark"] :is(.site-nav,.role-card,.feature-stack>div,.eyebrow,.nav-cta,.art-note,.auth-layout .login,.topbar,#view>header,#view .tile,#view .section,#view .panel,#marketplaceAdmin){
+ background:var(--surface)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important;box-shadow:5px 5px 0 var(--shadow-ink)!important;
+}
+:root[data-theme="dark"] :is(.steps li,.fb,.exp,.result,.start,.opt,.book-selection,.insight-guidance,.insight-stats>div,.insight-topic,.art-card,.hero-art,.feature-stack>div:nth-child(2)){background:var(--surface-alt)!important;color:var(--text-primary)!important}
+:root[data-theme="dark"] :is(h1,h2,h3,h4,h5,p,span,b,strong,label,legend,.label,.sub,.muted,.note,.progress,.portal .brand,.insight-heading p,.book-head p,.book-empty,.insight-note,.art-top,.art-note strong,.role-card p,.hero-copy>p){color:inherit}
+:root[data-theme="dark"] :is(.sub,.muted,.note,.progress,.insight-heading p,.book-head p,.book-empty,.insight-note,.role-card p,.hero-copy>p){color:var(--text-secondary)!important}
+:root[data-theme="dark"] :is(.btn,button,.portal button,.portal .btn,.opt,.day,.weeks button,.book-day,.book-time,.book-duration button,.nav-cta){background:var(--surface)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important;box-shadow:3px 3px 0 var(--shadow-ink)!important}
+:root[data-theme="dark"] :is(.btn.primary,button.primary,.portal button.primary,.portal .av-save,.weeks button.sel,.day.sel,.book-duration button.selected,.portal .book-day.selected,.portal .book-time.selected,.button.primary,.nav-cta:hover){background:var(--accent)!important;color:var(--accent-text)!important;border-color:var(--border-strong)!important}
+:root[data-theme="dark"] :is(input,select,textarea,.portal input,.portal select,.portal textarea,#view input,#view select,#view textarea){background:var(--surface-alt)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important}
+:root[data-theme="dark"] :is(input,textarea)::placeholder{color:var(--text-secondary)!important}
+:root[data-theme="dark"] :is(.chip,.pill,.portal .pill,.tag,.num,.mix span,.insight-stats>div,.book-selection,.insight-guidance){background:var(--surface-blue)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important}
+:root[data-theme="dark"] :is(.bar,.insight-meter,.art-progress){background:var(--surface-alt)!important;border-color:var(--border-strong)!important}
+:root[data-theme="dark"] :is(.bar i,.art-progress i){background:var(--accent)!important}
+:root[data-theme="dark"] :is(.q .opt,.q .opt:disabled){background:var(--surface-alt)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important;opacity:1!important}
+:root[data-theme="dark"] :is(.q .opt.right,.q .opt.right:disabled,.q .fb.ok,.fb.ok){background:var(--success-bg)!important;color:var(--success-fg)!important;border-color:#68b996!important;opacity:1!important}
+:root[data-theme="dark"] :is(.q .opt.wrong,.q .opt.wrong:disabled,.q .fb.no,.fb.no){background:var(--error-bg)!important;color:var(--error-fg)!important;border-color:#dd8993!important;opacity:1!important}
+:root[data-theme="dark"] :is(.q .fb,.q .fb b,.q .fb strong){color:inherit!important}
+:root[data-theme="dark"] .q .exp{background:var(--surface-blue)!important;color:var(--text-primary)!important;border-left-color:var(--accent)!important}
+:root[data-theme="dark"] :is(.q .num,.av-day,.av-corner,.av-time,.portal .av-cell,.book-day:disabled){background:var(--surface-alt)!important;color:var(--text-primary)!important}
+:root[data-theme="dark"] .portal .av-cell.selected{background:var(--accent)!important;color:var(--accent-text)!important}
+:root[data-theme="dark"] .portal .av-cell.selected::after{color:var(--accent-text)!important}
+:root[data-theme="dark"] :is(table,th,td,#view th,#view td){background:var(--surface)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important}
+:root[data-theme="dark"] :is(th,#view th){background:var(--surface-blue)!important}
+:root[data-theme="dark"] :is(.table-wrap,.availability-grid){border-color:var(--border-strong)!important;background:var(--border-strong)!important}
+:root[data-theme="dark"] #view tbody tr:hover{background:var(--surface-alt)!important}
+:root[data-theme="dark"] :is(a,.role-card a){color:var(--accent)}
+:root[data-theme="dark"] :is(.button.primary,.bottom-cta a,.strip a,.auth-aside a){color:var(--accent-text)}
+:root[data-theme="dark"] :is(.site-nav .logo,.logo-sub,.role-icon,.role-card a,.kicker,.insight-eyebrow,.insight-stats strong){color:var(--accent)!important}
+:root[data-theme="dark"] :is(.hero .outline){-webkit-text-stroke:2px var(--text-primary)}
+:root[data-theme="dark"] :is(.strip,.bottom-cta,.auth-aside,.art-card){background:#234779!important;color:#fff!important}
+:root[data-theme="dark"] :is(.hero-art,.art-grid){background-color:var(--surface-blue)!important}
+:root[data-theme="dark"] :is(.insight-meter::-webkit-progress-bar){background:var(--surface-alt)}
+:root[data-theme="dark"] .insight-meter::-webkit-progress-value{background:var(--accent)}
+:root[data-theme="dark"] .insight-meter::-moz-progress-bar{background:var(--accent)}
+:root[data-theme="dark"] .insight-chart-bar progress::-webkit-progress-value{background:var(--accent)}
+:root[data-theme="dark"] .insight-chart-bar progress::-moz-progress-bar{background:var(--accent)}
+:root[data-theme="dark"] :is(.insight-focus,.insight-strength){border-color:var(--border-strong)}
+:root[data-theme="dark"] :is(.q .opt:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible){outline:3px solid #a7c8ff!important;outline-offset:3px}
+@media(prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) :is(.card,.panel,.box,.start,.q,.result,.alert,.login,.stat,.tile,.modal-content,.portal .box,.wrap>header,.portal>header,.site-nav,.role-card,.feature-stack>div,.eyebrow,.nav-cta,.hero-art,.art-note,.auth-layout .login,.insight-dashboard,.insight-cols>section,.topbar,#view>header,#view .tile,#view .section,#view .panel,#marketplaceAdmin){background:var(--surface)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important;box-shadow:5px 5px 0 var(--shadow-ink)!important}
+ :root:not([data-theme="light"]) :is(.btn,button,.portal button,.portal .btn,.opt,.day,.weeks button,.book-day,.book-time,.book-duration button){background:var(--surface)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important;box-shadow:3px 3px 0 var(--shadow-ink)!important}
+ :root:not([data-theme="light"]) :is(.btn.primary,button.primary,.portal button.primary,.weeks button.sel,.day.sel,.book-duration button.selected,.portal .book-day.selected,.portal .book-time.selected,.button.primary){background:var(--accent)!important;color:var(--accent-text)!important}
+ :root:not([data-theme="light"]) :is(input,select,textarea,.portal input,.portal select,.portal textarea,#view input,#view select,#view textarea){background:var(--surface-alt)!important;color:var(--text-primary)!important;border-color:var(--border-strong)!important}
+ :root:not([data-theme="light"]) :is(.q .opt,.q .opt:disabled){background:var(--surface-alt)!important;color:var(--text-primary)!important;opacity:1!important}
+ :root:not([data-theme="light"]) :is(.q .opt.right,.q .opt.right:disabled,.q .fb.ok){background:var(--success-bg)!important;color:var(--success-fg)!important}
+ :root:not([data-theme="light"]) :is(.q .opt.wrong,.q .opt.wrong:disabled,.q .fb.no){background:var(--error-bg)!important;color:var(--error-fg)!important}
+ :root:not([data-theme="light"]) .q .exp{background:var(--surface-blue)!important;color:var(--text-primary)!important}
+ :root:not([data-theme="light"]) :is(.sub,.muted,.note,.progress,.insight-heading p,.book-head p,.role-card p,.hero-copy>p){color:var(--text-secondary)!important}
+ :root:not([data-theme="light"]) :is(.chip,.pill,.portal .pill,.tag,.num,.mix span,.insight-stats>div,.book-selection,.insight-guidance,.av-day,.av-corner,.av-time,.portal .av-cell){background:var(--surface-blue)!important;color:var(--text-primary)!important}
+ :root:not([data-theme="light"]) .portal .av-cell.selected{background:var(--accent)!important;color:var(--accent-text)!important}
+ :root:not([data-theme="light"]) :is(table,td,#view td){background:var(--surface)!important;color:var(--text-primary)!important}
+ :root:not([data-theme="light"]) :is(th,#view th){background:var(--surface-blue)!important;color:var(--text-primary)!important}
+ :root:not([data-theme="light"]) :is(.strip,.bottom-cta,.auth-aside,.art-card){background:#234779!important;color:#fff!important}
+ :root:not([data-theme="light"]) :is(.insight-dashboard,.insight-cols>section,.insight-topic,.hero-art,.art-note,.feature-stack>div){background:var(--surface)!important;color:var(--text-primary)!important}
+ :root:not([data-theme="light"]) :is(a,.role-card a){color:var(--accent)}
+ :root:not([data-theme="light"]) :is(.button.primary,.bottom-cta a){color:var(--accent-text)}
+ :root:not([data-theme="light"]) :is(.q .fb b,.q .fb strong){color:inherit!important}
+ :root:not([data-theme="light"]) :is(.q .opt:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible){outline:3px solid #a7c8ff!important}
+}
