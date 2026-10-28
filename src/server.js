@@ -10,6 +10,7 @@ const profiles = require('./profiles');
 const { SUBJ } = require('./plan');
 
 const payments = require('./payments');
+const points = require('./points');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY === '0' ? false : 1); // behind nginx
@@ -267,16 +268,24 @@ app.post('/api/teacher/bookings/:id/complete',T,(req,res)=>{
  db.prepare("UPDATE lesson_bookings SET status='completed' WHERE id=?").run(booking.id);
  res.json({ok:true});
 });
-app.post('/api/parent/bookings/:id/checkout',P,wrap(async(req,res)=>{
- const booking=db.prepare('SELECT * FROM lesson_bookings WHERE id=? AND parent_id=?').get(Number(req.params.id),req.user.id);
- if(!booking)return res.status(404).json({error:'Booking not found.'});
- if(booking.status!=='confirmed'||booking.payment_status==='paid')return res.status(409).json({error:'Booking must be confirmed and unpaid.'});
- if(!payments.configured())return res.status(503).json({error:'Online payment is not configured yet.'});
- const result=await payments.checkout(booking);
- const marked=db.prepare("UPDATE lesson_bookings SET payment_status='pending' WHERE id=? AND status='confirmed' AND payment_status='unpaid'").run(booking.id);
- if(!marked.changes)return res.status(409).json({error:'Booking status changed. Refresh and retry.'});
- res.json({url:result.url});
-}));
+app.get('/api/points/me',auth.requireUser,(req,res)=>res.json({balance:points.balance(req.user.id),history:points.history(req.user.id),unit:'points'}));
+app.post('/api/admin/points/grant',A,(req,res)=>{
+ const id=Number(req.body?.parent_id),n=Number(req.body?.points);
+ if(!validId(id)||!Number.isSafeInteger(n)||n<1||n>10000)return res.status(400).json({error:'Invalid demo grant'});
+ const parent=db.prepare("SELECT id FROM users WHERE id=? AND role='parent' AND active=1").get(id);
+ if(!parent)return res.status(404).json({error:'Parent not found'});
+ res.json({balance:points.seed(req.user.id,id,n)});
+});
+app.post('/api/parent/bookings/:id/points',P,(req,res)=>{
+ const admin=db.prepare("SELECT id FROM users WHERE role='admin' AND active=1 ORDER BY id LIMIT 1").get();
+ if(!admin)return res.status(503).json({error:'No admin available'});
+ try{res.json(points.pay(req.user.id,Number(req.params.id),admin.id));}
+ catch(e){res.status(409).json({error:e.message});}
+});
+app.post('/api/admin/bookings/:id/settle-points',A,(req,res)=>{
+ try{res.json(points.settle(req.user.id,Number(req.params.id)));}
+ catch(e){res.status(409).json({error:e.message});}
+});
 app.get('/api/parent/bookings',P,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE parent_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/teacher/bookings',T,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE teacher_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/teacher/earnings',T,(req,res)=>res.json(db.prepare("SELECT p.id,p.booking_id,p.amount_aed,p.status,b.status lesson_status,b.payment_status FROM teacher_payouts p JOIN lesson_bookings b ON b.id=p.booking_id WHERE p.teacher_id=? ORDER BY p.id DESC").all(req.user.id)));
