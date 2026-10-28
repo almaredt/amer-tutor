@@ -1,5 +1,5 @@
-// Claude integration: new practice questions, explanations, and suggested marks for written answers.
-// Without ANTHROPIC_API_KEY the app still works with the question bank only.
+// OpenAI integration: new practice questions, explanations, and suggested marks for written answers.
+// Without OPENAI_API_KEY the app still works with the question bank only.
 // AI_MOCK=1 returns fake answers, for testing without spending anything.
 const { OpenAIAdapter: Anthropic } = require('./openai-adapter');
 const db = require('./db');
@@ -10,15 +10,15 @@ const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1';
 const MODELS = {
   generate: MODEL,
   explain: process.env.OPENAI_MODEL_EXPLAIN || 'gpt-4.1-mini',
-  ask: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini',
+  ask: process.env.OPENAI_MODEL_EXPLAIN || 'gpt-4.1-mini',
   mark: process.env.OPENAI_MODEL_MARK || 'gpt-4.1-mini',
   photo: process.env.OPENAI_MODEL_PHOTO || 'gpt-4.1-mini', // reading handwriting needs a stronger model than Haiku
-  level: process.env.CLAUDE_MODEL_EXPLAIN || 'gpt-4.1-mini', // MYP level judgement for criterion tasks
+  level: process.env.OPENAI_MODEL_EXPLAIN || 'gpt-4.1-mini', // MYP level judgement for criterion tasks
 };
 const modelFor = (kind) => MODELS[kind] || MODEL;
 const MOCK = process.env.AI_MOCK === '1';
 const client = !MOCK && process.env.OPENAI_API_KEY ? new Anthropic({ apiKey: process.env.OPENAI_API_KEY }) : null;
-// USD per million tokens [input, output]. Update if prices change: https://platform.claude.com/docs/en/about-claude/pricing
+// USD per million tokens [input, output]. Update if prices change: https://platform.openai.com/docs/en/about-claude/pricing
 const PRICES = { 'gpt-4.1': [2, 8], 'gpt-4.1-mini': [0.4, 1.6] };
 const MONTHLY_LIMIT_USD = Number(process.env.AI_MONTHLY_LIMIT_USD || 10);
 
@@ -30,7 +30,7 @@ function monthCost() {
   return rows.reduce((s, r) => { const p = PRICES[r.model] || PRICES['gpt-4.1']; return s + (r.i * p[0] + r.o * p[1]) / 1e6; }, 0);
 }
 
-// What one student has spent on Claude today (UTC day), for the per-student daily cap.
+// What one student has spent on OpenAI today (UTC day), for the per-student daily cap.
 function userDayCost(userId) {
   const rows = db.prepare(`SELECT model, SUM(input_tokens) i, SUM(output_tokens) o FROM ai_log
     WHERE user_id = ? AND created_at >= date('now') GROUP BY model`).all(userId);
@@ -54,8 +54,8 @@ function log(userId, kind, usage, ok = 1, model = modelFor(kind)) {
 class AIError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 
 async function call(userId, kind, params) {
-  if (!available()) throw new AIError('not_configured', 'Claude is not set up on this server.');
-  if (!MOCK && monthCost() >= MONTHLY_LIMIT_USD) throw new AIError('budget', `This month's Claude budget ($${MONTHLY_LIMIT_USD}) is used up.`);
+  if (!available()) throw new AIError('not_configured', 'OpenAI is not set up on this server.');
+  if (!MOCK && monthCost() >= MONTHLY_LIMIT_USD) throw new AIError('budget', `This month's OpenAI budget ($${MONTHLY_LIMIT_USD}) is used up.`);
   try {
     const res = await client.messages.create({ model: modelFor(kind), ...params });
     log(userId, kind, res.usage);
@@ -71,20 +71,20 @@ async function call(userId, kind, params) {
 // Turn Anthropic API errors into a message the admin can act on.
 function explainApiError(e, detail, model = MODEL) {
   const st = e && e.status, d = String(detail).toLowerCase();
-  if (st === 401) return 'Claude rejected the API key. Check ANTHROPIC_API_KEY in /opt/amer-tutor/.env (no spaces, whole key), then restart.';
-  if (st === 403) return 'This API key is not allowed to use Claude. Check the key\'s workspace and permissions in platform.claude.com.';
-  if (d.includes('credit balance')) return 'The Claude API account has no credit left. Add credit in platform.claude.com → Billing.';
-  if (st === 404) return `The model "${model}" was not found for this key. Check the CLAUDE_MODEL settings in /opt/amer-tutor/.env.`;
-  if (st === 429) return 'Too many Claude requests right now (rate limit). Wait a minute and try again.';
-  if (st === 529 || st >= 500) return 'Claude is busy right now. Try again in a minute.';
-  if (!st) return 'The server could not reach Claude (network problem). Try again in a minute.';
-  return `Claude did not answer (error ${st}: ${String(detail).slice(0, 160)}).`;
+  if (st === 401) return 'OpenAI rejected the API key. Check OPENAI_API_KEY in /opt/amer-tutor/.env (no spaces, whole key), then restart.';
+  if (st === 403) return 'This API key is not allowed to use OpenAI. Check the key\'s workspace and permissions in platform.openai.com.';
+  if (d.includes('credit balance')) return 'The OpenAI API account has no credit left. Add credit in platform.openai.com → Billing.';
+  if (st === 404) return `The model "${model}" was not found for this key. Check the OPENAI_MODEL settings in /opt/amer-tutor/.env.`;
+  if (st === 429) return 'Too many OpenAI requests right now (rate limit). Wait a minute and try again.';
+  if (st === 529 || st >= 500) return 'OpenAI is busy right now. Try again in a minute.';
+  if (!st) return 'The server could not reach OpenAI (network problem). Try again in a minute.';
+  return `OpenAI did not answer (error ${st}: ${String(detail).slice(0, 160)}).`;
 }
 
 const textOf = (res) => res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
 const toolInput = (res) => (res.content.find((b) => b.type === 'tool_use') || {}).input;
 // Some models don't allow forcing a tool, so the tool is offered with tool_choice "auto".
-// If Claude answers in text instead, take the JSON object out of the text.
+// If OpenAI answers in text instead, take the JSON object out of the text.
 function structured(res) {
   const t = toolInput(res); if (t) return t;
   const m = textOf(res).match(/\{[\s\S]*\}/);
