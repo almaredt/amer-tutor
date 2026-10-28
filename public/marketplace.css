@@ -69,3 +69,5 @@
 .wallet-overview span{font:800 12px "JetBrains Mono",monospace}.wallet-overview strong{font:800 38px Sora,sans-serif}.wallet-overview small{color:var(--text-secondary,#444)}
 .wallet-activity{display:flex;justify-content:space-between;gap:15px;padding:13px 4px;border-bottom:1px solid var(--border-strong,#111)}
 @media(max-width:650px){.lesson-agenda-card{align-items:flex-start;flex-wrap:wrap}.lesson-actions{width:100%}}
+
+.portal #content>section[hidden]{display:none!important}
