@@ -211,6 +211,21 @@ app.post('/api/messages/:studentId/:teacherId', auth.requireUser, (req,res) => {
 
 // ---------- admin ----------
 const A = auth.requireAdmin;
+app.post('/api/parent/bookings',P,(req,res)=>{
+ const b=req.body||{},sid=Number(b.student_id),tid=Number(b.teacher_id),minutes=Number(b.minutes);
+ if(!validId(sid)||!validId(tid)||!parentOf(req.user.id,sid)||![45,60].includes(minutes))return res.status(403).json({error:'Invalid booking request.'});
+ if(typeof b.start_at!=='string'||!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(b.start_at))return res.status(400).json({error:'Invalid date.'});
+ const start=Date.parse(b.start_at+'+04:00');
+ if(!Number.isFinite(start)||start<Date.now()+3600000)return res.status(400).json({error:'Choose a future Dubai time.'});
+ const t=db.prepare('SELECT t.* FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND t.approved=1 AND u.active=1').get(tid);
+ if(!t)return res.status(404).json({error:'Teacher not available.'});
+ const amount=minutes===45?t.rate_45_aed:t.rate_60_aed;
+ if(!Number.isSafeInteger(amount)||amount<0)return res.status(400).json({error:'Rate not set.'});
+ const conflicts=db.prepare("SELECT start_at,minutes FROM lesson_bookings WHERE teacher_id=? AND status IN ('requested','confirmed')").all(tid);
+ if(conflicts.some(x=>{const a=Date.parse(x.start_at+'+04:00');return start<a+x.minutes*60000&&a<start+minutes*60000;}))return res.status(409).json({error:'Time slot unavailable.'});
+ const id=db.prepare('INSERT INTO lesson_bookings(parent_id,student_id,teacher_id,start_at,minutes,amount_aed) VALUES(?,?,?,?,?,?)').run(req.user.id,sid,tid,b.start_at,minutes,amount).lastInsertRowid;
+ res.status(201).json({id,status:'requested',amount_aed:amount,payment_status:'unpaid'});
+});
 app.get('/api/parent/bookings',P,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE parent_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/teacher/bookings',T,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE teacher_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/admin/bookings',A,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings ORDER BY id DESC LIMIT 200').all()));
