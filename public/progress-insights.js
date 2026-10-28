@@ -1,0 +1,13 @@
+// Shared student analytics visualization for parent and teacher dashboards.
+(function(){
+ const escape=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+ const pct=n=>n==null?'—':n+'%';
+ const meter=(n,label)=>'<div class="insight-meter" role="img" aria-label="'+escape(label)+' '+pct(n)+'"><span style="width:'+Math.max(0,Math.min(100,n||0))+'%"></span></div>';
+ function render(el,data,name){
+ const s=data.summary;
+ const rows=(items,empty)=>items.length?items.map(x=>'<article class="insight-topic"><div><b>'+escape(x.subject)+(x.topic?' / '+escape(x.topic):'')+'</b><small>'+x.correct+'/'+x.attempts+' correct · '+(x.confidence==='limited'?'Early data':'Based on practice')+'</small></div><strong>'+pct(x.accuracy)+'</strong>'+meter(x.accuracy,x.subject+' '+(x.topic||''))+'</article>').join(''):'<p class="muted">'+empty+'</p>';
+ const bars=data.weekly.slice(-14),max=Math.max(1,...bars.map(x=>x.attempts));
+ el.innerHTML='<div class="insight-dashboard"><div class="insight-heading"><div><span class="insight-eyebrow">LEARNING INSIGHTS / '+escape(name)+'</span><h3>Progress at a glance</h3><p>Based on marked practice answers — not estimated AI scores.</p></div></div><div class="insight-stats"><div><span>Accuracy</span><strong>'+pct(s.accuracy)+'</strong><small>'+s.correct+' / '+s.attempts+' correct</small></div><div><span>Sessions completed</span><strong>'+s.sessions+'</strong><small>Study sessions</small></div><div><span>Review queue</span><strong>'+s.review_due+'</strong><small>Items to revisit</small></div></div><div class="insight-cols"><section><h4>Subject performance</h4>'+rows(data.subjects,'Complete a few questions to see subject scores.')+'</section><section><h4>Activity — last 28 days</h4><div class="insight-chart" role="img" aria-label="Recent marked answers per day">'+(bars.length?bars.map(x=>'<div class="insight-chart-bar" title="'+escape(x.day)+': '+x.attempts+' answers"><i style="height:'+Math.max(4,x.attempts/max*100)+'%"></i><span>'+x.day.slice(5)+'</span></div>').join(''):'<p class="muted">No recent marked answers.</p>')+'</div><p class="insight-note">Bar height shows practice volume, not grades.</p></section></div><div class="insight-cols"><section class="insight-focus"><h4>↗ Focus next</h4>'+rows(data.focus,'No clear weak topics yet. Practice more to build reliable insights.')+'</section><section class="insight-strength"><h4>★ Doing well</h4>'+rows(data.strengths,'Strong topics appear after at least 3 marked answers and 80% accuracy.')+'</section></div><div class="insight-guidance"><b>RECOMMENDED NEXT STEP</b><p>'+escape(data.guidance)+'</p></div></div>';
+ }
+ window.ProgressInsights={render};
+})();
