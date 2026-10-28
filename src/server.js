@@ -190,7 +190,7 @@ app.post('/api/teacher/materials', T, (req,res) => {
   if (!validId(id) || !linked(req.user.id,id)) return res.status(403).json({ error:'Student is not assigned to you.' });
   if (!['lesson','assignment','exam'].includes(b.kind) || typeof b.title !== 'string' || !b.title.trim() || b.title.length>160 || typeof b.body !== 'string' || !b.body.trim() || b.body.length>20000) return res.status(400).json({ error:'Invalid material.' });
   const due=b.due_at == null || b.due_at === '' ? null : String(b.due_at);
-  if (due && !/^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2})?$/.test(due)) return res.status(400).json({ error:'Invalid due date.' });
+  if (due && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(due)) return res.status(400).json({ error:'Invalid due date.' });
   const result=db.prepare('INSERT INTO teacher_materials (teacher_id,student_id,kind,title,body,due_at) VALUES (?,?,?,?,?,?)').run(req.user.id,id,b.kind,b.title.trim(),b.body.trim(),due);
   res.status(201).json({ id:result.lastInsertRowid });
 });
@@ -214,7 +214,7 @@ const A = auth.requireAdmin;
 app.post('/api/parent/bookings',P,(req,res)=>{
  const b=req.body||{},sid=Number(b.student_id),tid=Number(b.teacher_id),minutes=Number(b.minutes);
  if(!validId(sid)||!validId(tid)||!parentOf(req.user.id,sid)||![45,60].includes(minutes))return res.status(403).json({error:'Invalid booking request.'});
- if(typeof b.start_at!=='string'||!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(b.start_at))return res.status(400).json({error:'Invalid date.'});
+ if(typeof b.start_at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(b.start_at))return res.status(400).json({error:'Invalid date.'});
  const start=Date.parse(b.start_at+'+04:00');
  if(!Number.isFinite(start)||start<Date.now()+3600000)return res.status(400).json({error:'Choose a future Dubai time.'});
  const t=db.prepare('SELECT t.* FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND t.approved=1 AND u.active=1').get(tid);
