@@ -163,6 +163,15 @@ const parentOf = (parent, student) => !!db.prepare('SELECT 1 FROM parent_student
 const publicTeacher = (u) => ({ ...u, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages) });
 app.get('/api/teachers', auth.requireUser, (req, res) => res.json(db.prepare(`SELECT u.id, u.display_name, t.bio, t.subjects, t.grades, t.curricula, t.languages, t.rate_45_aed, t.rate_60_aed
   FROM teacher_profiles t JOIN users u ON u.id=t.user_id WHERE t.approved=1 AND u.active=1 AND u.role='teacher' ORDER BY u.display_name`).all().map(publicTeacher)));
+app.get('/api/teacher/availability',T,(req,res)=>res.json(db.prepare('SELECT weekday,start_time,end_time FROM teacher_availability WHERE teacher_id=? ORDER BY weekday,start_time').all(req.user.id)));
+app.put('/api/teacher/availability',T,(req,res)=>{
+ const slots=req.body&&req.body.slots;
+ if(!Array.isArray(slots)||slots.length>40||slots.some(x=>!Number.isInteger(x.weekday)||x.weekday<0||x.weekday>6||typeof x.start_time!=='string'||typeof x.end_time!=='string'||!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(x.start_time)||!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(x.end_time)||x.start_time>=x.end_time))return res.status(400).json({error:'Invalid weekly schedule.'});
+ const sorted=[...slots].sort((a,b)=>a.weekday-b.weekday||a.start_time.localeCompare(b.start_time));
+ if(sorted.some((x,i)=>i&&x.weekday===sorted[i-1].weekday&&x.start_time<sorted[i-1].end_time))return res.status(400).json({error:'Overlapping availability.'});
+ db.transaction(()=>{db.prepare('DELETE FROM teacher_availability WHERE teacher_id=?').run(req.user.id);const ins=db.prepare('INSERT INTO teacher_availability(teacher_id,weekday,start_time,end_time) VALUES(?,?,?,?)');for(const x of sorted)ins.run(req.user.id,x.weekday,x.start_time,x.end_time);})();
+ res.json({ok:true});
+});
 app.get('/api/teacher/me', T, (req, res) => {
   const profile = db.prepare('SELECT * FROM teacher_profiles WHERE user_id=?').get(req.user.id);
   const students = db.prepare(`SELECT DISTINCT u.id,u.display_name,u.grade,u.programme FROM teacher_students ts JOIN users u ON u.id=ts.student_id WHERE ts.teacher_id=? AND u.role='student' AND u.active=1`).all(req.user.id);
