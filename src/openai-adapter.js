@@ -2,7 +2,7 @@
 class OpenAIAdapter {
  constructor(opts){this.key=opts.apiKey;this.messages={create:this.create.bind(this)};}
  async create(params){
-  const messages=params.messages.map(m=>({role:m.role,content:typeof m.content==='string'?m.content:m.content.map(p=>p.type==='image'?{type:'image_url',image_url:{url:'data:'+p.source.media_type+';base64,'+p.source.data}}:{type:'text',text:p.text})}));
+  const messages=(params.system?[{role:'system',content:params.system}]:[]).concat(params.messages.map(m=>({role:m.role,content:typeof m.content==='string'?m.content:m.content.map(p=>p.type==='image'?{type:'image_url',image_url:{url:'data:'+p.source.media_type+';base64,'+p.source.data}}:{type:'text',text:p.text})})));
   const body={model:params.model,messages,max_completion_tokens:params.max_tokens};
   if(params.tools){body.tools=params.tools.map(t=>({type:'function',function:{name:t.name,description:t.description,parameters:t.input_schema}}));body.tool_choice='auto';}
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),90000);
