@@ -6,7 +6,9 @@ const safe=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/
 let active='overview',loading=false,version=0,queued=false;
 function node(tag,cls){const n=document.createElement(tag);if(cls)n.className=cls;return n;}
 function tab(name){
+ if(!labels[name])name='overview';
  active=name;
+ if(document.getElementById('adminShell')&&!document.querySelector('.admin-screen[data-screen="'+name+'"]')){if(typeof overview==='function')overview();return;}
  document.querySelectorAll('.admin-screen').forEach(s=>s.hidden=s.dataset.screen!==name);
  document.querySelectorAll('.admin-nav button[data-screen]').forEach(b=>{const yes=b.dataset.screen===name;b.classList.toggle('active',yes);b.setAttribute('aria-current',yes?'page':'false');});
  const title=document.getElementById('adminScreenTitle');if(title)title.textContent=labels[name][1];
@@ -142,7 +144,7 @@ async function renderDashboard(){
   const legacy=target.querySelector(':scope > header, :scope > .tiles');if(legacy){target.querySelector(':scope > header')?.classList.add('admin-legacy');target.querySelector(':scope > .tiles')?.classList.add('admin-legacy');}
  }catch(e){dash.innerHTML='<p class="admin-error">Dashboard metrics unavailable: '+safe(e.message)+'</p>';}
 }
-function schedule(){if(queued)return;queued=true;setTimeout(()=>{queued=false;const v=document.getElementById('view');if(v&&v.querySelector('.tiles')&&v.querySelector('#addForm'))rebuild();},120);}
+function schedule(){if(queued)return;queued=true;setTimeout(()=>{queued=false;const v=document.getElementById('view');if(!v)return;if(v.querySelector('.tiles')&&v.querySelector('#addForm'))rebuild();else if(document.getElementById('adminShell')&&v.querySelector('#back')){active='students';const title=document.getElementById('adminScreenTitle');if(title)title.textContent='Student report';document.querySelectorAll('.admin-nav button[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen==='students'));}},120);}
 document.addEventListener('DOMContentLoaded',()=>{
  try{const saved=sessionStorage.getItem('amer-admin-tab');if(labels[saved])active=saved;}catch{}
  new MutationObserver(schedule).observe(document.getElementById('root')||document.body,{subtree:true,childList:true});
