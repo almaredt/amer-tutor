@@ -480,6 +480,7 @@ function sendPage(res, file) {
 app.get('/admin', (req, res) => sendPage(res, 'admin.html'));
 app.get('/portal', (req, res) => sendPage(res, 'portal.html'));
 app.get('/tutors', (req, res) => sendPage(res, 'tutors.html'));
+app.get('/tutor/:id', (req, res) => /^\d+$/.test(req.params.id) ? sendPage(res, 'tutor-profile.html') : res.status(404).end());
 app.get('/study', (req, res) => sendPage(res, 'index.html'));
 app.get('/login', (req, res) => sendPage(res, 'login.html'));
 app.get('/', (req, res) => sendPage(res, 'landing.html'));
