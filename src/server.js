@@ -11,6 +11,7 @@ const { SUBJ } = require('./plan');
 
 const points = require('./points');
 const refunds = require('./refund-points');
+const progressInsights = require('./progress-insights');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY === '0' ? false : 1); // behind nginx
@@ -180,6 +181,17 @@ app.put('/api/teacher/profile', T, (req, res) => {
   db.prepare(`INSERT INTO teacher_profiles (user_id,bio,subjects,grades,curricula,languages,rate_45_aed,rate_60_aed,approved)
     VALUES (?,?,?,?,?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET bio=excluded.bio,subjects=excluded.subjects,grades=excluded.grades,curricula=excluded.curricula,languages=excluded.languages,rate_45_aed=excluded.rate_45_aed,rate_60_aed=excluded.rate_60_aed,approved=0`).run(req.user.id,b.bio,subjects,grades,curricula,languages,r45,r60);
   res.json({ ok:true, approved:false, message:'Profile updated; admin approval required.' });
+});
+app.get('/api/student/progress-insights',S,(req,res)=>res.json(progressInsights.get(req.user.id)));
+app.get('/api/parent/children/:id/insights',P,(req,res)=>{
+ const id=Number(req.params.id);
+ if(!validId(id)||!parentOf(req.user.id,id))return res.status(404).json({error:'Child not found.'});
+ res.json(progressInsights.get(id));
+});
+app.get('/api/teacher/students/:id/insights',T,(req,res)=>{
+ const id=Number(req.params.id);
+ if(!validId(id)||!linked(req.user.id,id))return res.status(404).json({error:'Student not found.'});
+ res.json(progressInsights.get(id));
 });
 app.get('/api/parent/children', P, (req,res) => res.json(db.prepare(`SELECT u.id,u.display_name,u.grade,u.programme FROM parent_students ps JOIN users u ON u.id=ps.student_id WHERE ps.parent_id=? AND u.role='student'`).all(req.user.id)));
 app.get('/api/parent/children/:id/progress', P, (req,res) => {
