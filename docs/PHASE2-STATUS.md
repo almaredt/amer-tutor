@@ -3,7 +3,7 @@
 ## Implemented on chatgptv1
 - Teacher and parent account management, approval and explicit child/student linking.
 - Teacher profile, AED lesson rates, weekly Dubai-time availability and student messaging/materials.
-- Parent booking requests (45 or 60 minutes), teacher confirmation, overlap and schedule checks.
+- Parent booking requests (45 or 60 minutes), teacher confirmation, unpaid cancellation, overlap and schedule checks.
 - Optional Stripe Checkout integration. A parent can request checkout **only after teacher confirmation**. A signed webhook marks payment paid; redirects never mark it paid.
 - On verified payment, an internal teacher payout is created. Default platform commission: 15% (1500 basis points), configurable.
 - Teacher can mark a paid lesson complete only after its scheduled end.
