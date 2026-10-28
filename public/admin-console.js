@@ -20,13 +20,14 @@ function ensureShell(){
   shell=node('div','admin-shell');shell.id='adminShell';
   const side=node('aside','admin-sidebar');
   side.innerHTML='<a class="admin-brand" href="/"><span>▦</span><strong>AMER<br>TUTOR</strong><small>ADMIN / OS</small></a><div class="admin-side-label">WORKSPACE</div><nav class="admin-nav" aria-label="Admin workspace">'+Object.entries(labels).map(([key,[icon,label]])=>'<button type="button" data-screen="'+key+'"><span>'+icon+'</span>'+label+'</button>').join('')+'</nav><div class="admin-side-foot"><strong>● DEMO POINTS MODE</strong><small>15% platform commission<br>No real payments enabled</small></div>';
-  const main=node('div','admin-main');main.innerHTML='<header class="admin-console-top"><div><span class="admin-eyebrow">OPERATIONS / AMER TUTOR</span><h1 id="adminScreenTitle">Overview</h1></div><div class="admin-top-actions"><span id="adminToday"></span><button id="adminRefresh" type="button">↻ Refresh</button></div></header><div class="admin-screen-holder"></div>';
+  const main=node('div','admin-main');main.innerHTML='<header class="admin-console-top"><div><span class="admin-eyebrow">OPERATIONS / AMER TUTOR</span><h1 id="adminScreenTitle">Overview</h1></div><div class="admin-top-actions"><span id="adminToday"></span><button id="adminRefresh" type="button">↻ Refresh</button><button id="adminLogout" type="button">Log out ↗</button></div></header><div class="admin-screen-holder"></div>';
   const holder=main.querySelector('.admin-screen-holder');
   view.parentNode.insertBefore(shell,view);shell.append(side,main);holder.append(view);
   view.classList.add('admin-view');
   for(const key of Object.keys(labels)){const section=node('section','admin-screen');section.dataset.screen=key;section.hidden=true;view.append(section);}
   side.querySelectorAll('button').forEach(b=>b.onclick=()=>tab(b.dataset.screen));
   main.querySelector('#adminRefresh').onclick=()=>{if(typeof overview==='function')overview();};
+  main.querySelector('#adminLogout').onclick=()=>logout();
   main.querySelector('#adminToday').textContent=new Intl.DateTimeFormat('en-AE',{dateStyle:'medium',timeZone:'Asia/Dubai'}).format(new Date())+' · Dubai';
  }
  return view;
