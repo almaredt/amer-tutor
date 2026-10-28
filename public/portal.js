@@ -38,9 +38,19 @@ async function parent(){
  const c=$('content');try{
  const [children,teachers,bookings,wallet,refunds]=await Promise.all([api('/api/parent/children'),api('/api/teachers'),api('/api/parent/bookings'),api('/api/points/me'),api('/api/parent/refunds')]);
  c.innerHTML=box('My points','<h2>'+wallet.balance+' points</h2><p class="muted">Demo points only. Ask Admin to add points to your account.</p>')+box('My children',children.length?children.map(s=>'<div class="box"><b>'+esc(s.display_name)+'</b><p>Grade '+esc(s.grade||'—')+'</p><button data-child="'+s.id+'">View progress</button><div id="child-'+s.id+'"></div></div>').join(''):'<p class="muted">Admin has not linked a child to your account yet.</p>')+
- box('Find a teacher',teachers.length?'<div class="cards">'+teachers.map(t=>'<article class="box"><h2>'+esc(t.display_name)+'</h2><p>'+esc(t.bio)+'</p>'+t.subjects.map(x=>'<span class="pill">'+esc(x)+'</span>').join('')+'<p class="small">Grades: '+esc(t.grades.join(', '))+' · '+esc(t.curricula.join(', '))+'</p><b>'+esc(t.rate_45_aed??'—')+' points / 45 min · '+esc(t.rate_60_aed??'—')+' points / 60 min</b><p class="muted small">Book a lesson using demo points.</p><button data-book="'+t.id+'">Request lesson</button></article>').join('')+'</div>':'<p class="muted">No approved teachers yet.</p>');
+ box('Find your tutor','<div id="tutorMarketplace"></div>');
  c.innerHTML+=box('Lesson requests',bookings.length?bookings.map(b=>'<p>Teacher #'+b.teacher_id+' · '+esc(b.start_at)+' · '+b.minutes+' min · '+b.amount_aed+' points · '+esc(b.status)+' / '+esc(b.payment_status)+'</p>'+(b.status==='confirmed'&&b.payment_status==='unpaid'?'<button data-pay="'+b.id+'">Transfer points to Admin</button>':'')+(b.payment_status==='unpaid'&&['requested','confirmed'].includes(b.status)?'<button data-cancel="'+b.id+'">Cancel</button>':'')+(b.payment_status==='paid'&&b.status==='confirmed'&&!refunds.some(r=>r.booking_id===b.id)?'<button data-refund="'+b.id+'">Request refund</button>':'')).join(''):'<p class="muted">No bookings yet.</p>');
  c.innerHTML+=box('Point refund requests',refunds.map(r=>'<p>Booking #'+r.booking_id+' · '+esc(r.status)+'</p>').join(''));
+ TutorMarketplace.mount($('tutorMarketplace'),teachers,async(t,profileEl)=>{
+   c.querySelectorAll('.book-picker').forEach(x=>x.remove());
+   const el=document.createElement('section');el.className='box book-picker';
+   profileEl.after(el);
+   await ParentCalendar.mount(el,t.id,children,body=>api('/api/parent/bookings',body));
+   const price=document.createElement('p');price.className='book-price';
+   price.textContent='Lesson rates: '+(t.rate_45_aed??'—')+' points / 45 min · '+(t.rate_60_aed??'—')+' points / 60 min';
+   el.querySelector('.book-head').after(price);
+   el.scrollIntoView({behavior:'smooth',block:'start'});
+ });
  c.querySelectorAll('[data-cancel]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Cancel this unpaid booking?'))return;try{await api('/api/parent/bookings/'+btn.dataset.cancel+'/cancel',{});await parent();}catch(e){alert(e.message);}});
  c.querySelectorAll('[data-refund]').forEach(b=>b.onclick=async()=>{const reason=window.prompt('Reason for refund (minimum 5 characters):');if(reason===null)return;try{await api('/api/parent/bookings/'+b.dataset.refund+'/refund',{reason});await parent();}catch(e){alert(e.message);}});
  c.querySelectorAll('[data-pay]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Transfer points to Admin for this lesson?'))return;btn.disabled=true;try{await api('/api/parent/bookings/'+btn.dataset.pay+'/points',{});await parent();}catch(e){btn.disabled=false;alert(e.message);}});
