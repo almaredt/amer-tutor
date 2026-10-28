@@ -273,7 +273,8 @@ app.post('/api/parent/bookings/:id/checkout',P,wrap(async(req,res)=>{
  if(booking.status!=='confirmed'||booking.payment_status==='paid')return res.status(409).json({error:'Booking must be confirmed and unpaid.'});
  if(!payments.configured())return res.status(503).json({error:'Online payment is not configured yet.'});
  const result=await payments.checkout(booking);
- db.prepare("UPDATE lesson_bookings SET payment_status='pending' WHERE id=? AND payment_status='unpaid'").run(booking.id);
+ const marked=db.prepare("UPDATE lesson_bookings SET payment_status='pending' WHERE id=? AND status='confirmed' AND payment_status='unpaid'").run(booking.id);
+ if(!marked.changes)return res.status(409).json({error:'Booking status changed. Refresh and retry.'});
  res.json({url:result.url});
 }));
 app.get('/api/parent/bookings',P,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE parent_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
