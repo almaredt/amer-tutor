@@ -340,6 +340,14 @@ app.post('/api/admin/bookings/:id/settle-points',A,(req,res)=>{
 });
 app.get('/api/parent/bookings',P,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE parent_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
 app.get('/api/teacher/bookings',T,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings WHERE teacher_id=? ORDER BY start_at DESC LIMIT 100').all(req.user.id)));
+app.get('/api/admin/analytics',A,(req,res)=>{
+ const usersByDay=db.prepare("SELECT substr(created_at,1,10) day,COUNT(*) count FROM users WHERE created_at>=date('now','-29 days') GROUP BY substr(created_at,1,10) ORDER BY day").all();
+ const lessonSubjects=db.prepare(`SELECT COALESCE(NULLIF(json_extract(t.subjects,'$[0]'),''),'Unspecified') subject,COUNT(*) lessons
+ FROM lesson_bookings b JOIN teacher_profiles t ON t.user_id=b.teacher_id GROUP BY subject ORDER BY lessons DESC LIMIT 8`).all();
+ const pointsByMonth=db.prepare("SELECT substr(created_at,1,7) month,SUM(points) points FROM point_movements WHERE kind='lesson' AND created_at>=date('now','-6 months') GROUP BY substr(created_at,1,7) ORDER BY month").all();
+ const recentUsers=db.prepare("SELECT id,display_name,role,created_at FROM users ORDER BY id DESC LIMIT 8").all();
+ res.set('Cache-Control','no-store').json({users_by_day:usersByDay,lesson_subjects:lessonSubjects,points_by_month:pointsByMonth,recent_users:recentUsers});
+});
 app.get('/api/admin/bookings',A,(req,res)=>res.json(db.prepare('SELECT * FROM lesson_bookings ORDER BY id DESC LIMIT 200').all()));
 app.get('/api/admin/overview', A, (req, res) => {
   const students = db.prepare(`SELECT u.id, u.username, u.display_name, u.active, u.created_at, u.last_seen_at, u.programme, u.grade, u.class_name, u.course_id, s.name school
