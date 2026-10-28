@@ -158,7 +158,7 @@ const parentOf = (parent, student) => !!db.prepare('SELECT 1 FROM parent_student
 const demoPhotos = Object.freeze({aisyah:47,daniel:12,kavitha:44,jason:13,farah:49,amir:14});
 const publicTeacher = (u) => {
  const { username, ...fields }=u;
- const demoKey=/^demo\\.teacher\\.([a-z]+)$/.exec(username||'')?.[1];
+ const demoKey=/^demo\.teacher\.([a-z]+)$/.exec(username||'')?.[1];
  return { ...fields, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages),
  ...(demoKey && demoPhotos[demoKey] ? {photo_url:'https://i.pravatar.cc/300?img='+demoPhotos[demoKey],is_demo:true}: {}) };
 };
