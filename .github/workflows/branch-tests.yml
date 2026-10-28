@@ -26,6 +26,7 @@ jobs:
           node --check src/openai-adapter.js
           node --check public/portal.js
           node --check public/tutor-marketplace.js
+          node --check public/tutor-explore.js
           node --check public/landing.js
           node --check scripts/seed-demo.js
           node --check public/admin-marketplace.js
