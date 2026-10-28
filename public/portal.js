@@ -27,6 +27,7 @@ async function teacher(){
     c.querySelectorAll('[data-progress]').forEach(b=>b.onclick=async()=>{const id=b.dataset.progress,el=$('detail-'+id);el.innerHTML='<p class="muted">Loading learning insights…</p>';try{const d=await api('/api/teacher/students/'+id+'/insights');ProgressInsights.render(el,d,b.closest('.box').querySelector('b').textContent);}catch(ex){el.textContent=ex.message;}});
     c.querySelectorAll('[data-compose]').forEach(b=>b.onclick=()=>{const id=b.dataset.compose,el=$('detail-'+id);el.innerHTML='<form><label>Type<select name="kind"><option>lesson</option><option>assignment</option><option>exam</option></select></label><label>Title<input name="title" maxlength="160" required></label><label>Content<textarea name="body" maxlength="20000" required></textarea></label><label>Due date<input type="date" name="due_at"></label><button class="primary">Send to student</button><p class="small" id="sent-'+id+'"></p></form>';el.querySelector('form').onsubmit=async(e)=>{e.preventDefault();const f=new FormData(e.target);try{await api('/api/teacher/materials',{student_id:Number(id),kind:f.get('kind'),title:f.get('title'),body:f.get('body'),due_at:f.get('due_at')});$('sent-'+id).textContent='Sent successfully.';}catch(ex){$('sent-'+id).textContent=ex.message;}};});
     c.querySelectorAll('[data-chat]').forEach(b=>b.onclick=()=>conversation(b.dataset.chat,meIdFromPage(),$('detail-'+b.dataset.chat)));
+    PortalWorkspace.enhance('teacher',{students:data.students.length,bookings,points:wallet.balance});
   }catch(e){c.innerHTML=err(e);}
 }
 let activeMeId;
@@ -56,6 +57,7 @@ async function parent(){
  c.querySelectorAll('[data-pay]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Transfer points to Admin for this lesson?'))return;btn.disabled=true;try{await api('/api/parent/bookings/'+btn.dataset.pay+'/points',{});await parent();}catch(e){btn.disabled=false;alert(e.message);}});
  c.querySelectorAll('[data-book]').forEach(btn=>btn.onclick=async()=>{const id=Number(btn.dataset.book);c.querySelectorAll('.book-picker').forEach(x=>x.remove());const el=document.createElement('section');el.className='box book-picker';btn.closest('article').after(el);await ParentCalendar.mount(el,id,children,body=>api('/api/parent/bookings',body));const t=teachers.find(x=>x.id===id);if(t){const p=document.createElement('p');p.className='book-price';p.textContent='Lesson price: '+(t.rate_45_aed??'—')+' points / 45 min · '+(t.rate_60_aed??'—')+' points / 60 min';el.querySelector('.book-head').after(p);}});
  c.querySelectorAll('[data-child]').forEach(b=>b.onclick=async()=>{const id=b.dataset.child,el=$('child-'+id);el.innerHTML='<p class="muted">Loading learning insights…</p>';try{const d=await api('/api/parent/children/'+id+'/insights');ProgressInsights.render(el,d,b.closest('.box').querySelector('b').textContent);}catch(e){el.textContent=e.message;}});
+ PortalWorkspace.enhance('parent',{children:children.length,teachers:teachers.length,bookings,points:wallet.balance});
 
  }catch(e){c.innerHTML=err(e);}
 }
