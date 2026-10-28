@@ -346,26 +346,25 @@ const server = app.listen(0, async () => {
     assert.equal((await req('teacher','GET','/api/teacher/bookings')).data.length,1);
     assert.equal((await req('parent','GET','/api/parent/bookings')).data[0].payment_status,'unpaid');
     assert.equal((await req('admin','GET','/api/admin/bookings')).data.length,1);
-    // Signed webhook is the only path to paid status; browser redirects do not count.
+    // Demo point flow: admin grants points, parent transfers, admin settles 85%.
     const booking=(await req('parent','GET','/api/parent/bookings')).data[0];
-    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/checkout',{})).status,409,'unconfirmed lesson cannot be paid');
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/points',{})).status,409,'cannot pay before confirmation');
     assert.equal((await req('teacher','POST','/api/teacher/bookings/'+booking.id+'/confirm',{})).status,200);
-    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/checkout',{})).status,503,'payment disabled without merchant credentials');
-    const crypto=require('crypto');
-    const payload=JSON.stringify({id:'evt_smoke_1',type:'checkout.session.completed',data:{object:{metadata:{booking_id:String(booking.id)},client_reference_id:String(booking.id),payment_status:'paid',currency:'aed',amount_total:10000}}});
-    const ts=Math.floor(Date.now()/1000);
-    const sig=crypto.createHmac('sha256',process.env.STRIPE_WEBHOOK_SECRET).update(ts+'.'+payload).digest('hex');
-    assert.equal((await fetch(base+'/webhooks/stripe',{method:'POST',headers:{'Content-Type':'application/json','stripe-signature':'t='+ts+',v1=bad'},body:payload})).status,400,'reject forged payment');
-    assert.equal((await fetch(base+'/webhooks/stripe',{method:'POST',headers:{'Content-Type':'application/json','stripe-signature':'t='+ts+',v1='+sig},body:payload})).status,200,'accept signed paid event');
-    assert.equal((await req('parent','GET','/api/parent/bookings')).data[0].payment_status,'paid');
-    assert.equal((await req('teacher','GET','/api/teacher/earnings')).data[0].amount_aed,85,'15% platform commission');
-    assert.equal((await fetch(base+'/webhooks/stripe',{method:'POST',headers:{'Content-Type':'application/json','stripe-signature':'t='+ts+',v1='+sig},body:payload})).status,200,'duplicate signed event acknowledged');
-    assert.equal((await req('teacher','GET','/api/teacher/earnings')).data.length,1,'duplicate event cannot create duplicate payout');
-    assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,409,'cannot pay teacher before lesson completion');
+    assert.equal((await req('admin','POST','/api/admin/points/grant',{parent_id:pid,points:200})).status,200);
+    assert.equal((await req('parent','GET','/api/points/me')).data.balance,200);
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/points',{})).status,200);
+    assert.equal((await req('parent','GET','/api/points/me')).data.balance,100);
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/points',{})).status,409,'cannot double-pay');
+    assert.equal((await req('admin','POST','/api/admin/bookings/'+booking.id+'/settle-points',{})).status,409,'cannot settle before lesson');
     db.prepare('UPDATE lesson_bookings SET start_at=? WHERE id=?').run('2020-01-01T10:00',booking.id);
     assert.equal((await req('teacher','POST','/api/teacher/bookings/'+booking.id+'/complete',{})).status,200);
-    assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,200);
-    assert.equal((await req('admin','POST','/api/admin/payouts/1/paid',{note:'BANK-1234'})).status,409,'payout is idempotent');
+    const settlement=await req('admin','POST','/api/admin/bookings/'+booking.id+'/settle-points',{});
+    assert.equal(settlement.status,200,JSON.stringify(settlement.data));
+    assert.equal(settlement.data.teacher_points,85);
+    assert.equal(settlement.data.admin_points,15);
+    assert.equal((await req('teacher','GET','/api/points/me')).data.balance,85);
+    assert.equal((await req('admin','POST','/api/admin/bookings/'+booking.id+'/settle-points',{})).status,409,'cannot double-settle');
+    assert.equal((await req('parent','POST','/api/parent/bookings/'+booking.id+'/checkout',{})).status,404,'real checkout disabled');
 
     const cancelReq=await req('parent','POST','/api/parent/bookings',{teacher_id:tid,student_id:uid,minutes:45,start_at:'2099-12-15T16:00'});
     assert.equal(cancelReq.status,201);
