@@ -254,6 +254,17 @@ CREATE TABLE IF NOT EXISTS teacher_payouts (
 );
 `);
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS teacher_availability (
+ teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ weekday INTEGER NOT NULL CHECK(weekday BETWEEN 0 AND 6),
+ start_time TEXT NOT NULL,
+ end_time TEXT NOT NULL,
+ PRIMARY KEY(teacher_id,weekday,start_time),
+ CHECK(start_time < end_time)
+);
+`);
+
 // Seed / refresh the hand-written bank (fixes in question-bank.js reach the DB on restart).
 function seedBank() {
   const upsert = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, course_id)
