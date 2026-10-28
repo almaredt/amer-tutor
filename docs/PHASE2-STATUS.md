@@ -1,10 +1,30 @@
-# Phase 2 rollout notes
+# Amer Tutor — Phase 3 implementation and release gates
 
-## OpenAI
-The tutor now uses the OpenAI-compatible adapter in `src/openai-adapter.js`. Set `OPENAI_API_KEY` in the server environment. The existing `src/ai.js` model environment variable names still begin with `CLAUDE_MODEL` in this interim revision; defaults are OpenAI model IDs. Do not set old Claude model values. Use `AI_MOCK=1` for tests. The original Anthropic dependency is not used by the adapter, but package cleanup is pending.
+## Implemented on chatgptv1
+- Teacher and parent account management, approval and explicit child/student linking.
+- Teacher profile, AED lesson rates, weekly Dubai-time availability and student messaging/materials.
+- Parent booking requests (45 or 60 minutes), teacher confirmation, overlap and schedule checks.
+- Optional Stripe Checkout integration. A parent can request checkout **only after teacher confirmation**. A signed webhook marks payment paid; redirects never mark it paid.
+- On verified payment, an internal teacher payout is created. Default platform commission: 15% (1500 basis points), configurable.
+- Teacher can mark a paid lesson complete only after its scheduled end.
+- Admin can record a **manual external bank transfer** with a reference, only for completed and paid lessons. No automatic bank transfer is performed.
+- OpenAI adapter wired to the existing AI service. `OPENAI_API_KEY` and `OPENAI_MODEL*` configure access. Old provider-related UI copy may remain.
 
-## Bookings
-Parent requests can be submitted from the portal. The rate is captured from the approved teacher profile. Teacher, parent and admin have role-scoped booking listing endpoints. The booking ledger and payout table exist, but teacher acceptance, payments, refunds, commission, payouts, and provider webhook verification are **not implemented**. All new bookings are unpaid and requested. Do not take payment or represent a request as a confirmed class.
+## Configuration
+Set `OPENAI_API_KEY`. For payments, set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `PUBLIC_BASE_URL` to the public HTTPS origin. Register a Stripe webhook pointing to `/webhooks/stripe` for `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Configure merchant account, currencies, return URLs, local licensing and refund policies before collecting real funds. No live keys are stored in GitHub.
 
-## Release gate
-This branch is not deployment-ready. Before any production rollout: run `npm ci`, `npm test`, start against a backup copy of the production database, verify role migration and FK integrity, test access control for all four roles, verify OpenAI calls and cost limits, and perform browser/mobile accessibility checks. Do not merge into main or deploy without explicit owner approval.
+## Known gaps and release blockers
+- **Not tested in a running environment here.** GitHub Actions workflow `.github/workflows/branch-tests.yml` and extended `npm test` smoke tests have been committed. Confirm CI passes; inspect logs and resolve failures.
+- Verify SQLite role-constraint migration and FK integrity against a **copy** of existing production data, with a tested backup/rollback procedure.
+- Refunds, disputes, cancellations after payment, reconciliation of provider fees, audit logs and automated notifications are not finished. **Do not activate live payments until these are handled.**
+- Weekly availability is a simple recurring calendar; exceptions/holidays/time-zone edge cases and rescheduling remain.
+- Admin UI is an incremental extension, not final role-wide brutalist redesign.
+- OpenAI integration must be verified end to end using real sandbox API calls and controlled budgets.
+- No changes were made to `main` or the production server.
+
+## Recommended verification
+1. `npm ci && npm test` and `node --check` for modified files.
+2. Validate all four role permissions, student privacy, CSRF, and forged webhook rejection.
+3. Test merchant sandbox: create booking → teacher confirms → parent pays → signed webhook → lesson completes → admin bank transfer reference.
+4. Test duplicate webhooks, repeated checkouts, failed payments, time conflicts and parent/teacher cross-account attempts.
+5. Approve production deployment only after a backup and rollback drill.
