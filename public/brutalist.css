@@ -71,3 +71,27 @@ td,th{border:1.5px solid #111;padding:10px;text-align:left}
  .portal .cards{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
+
+/* Student quiz accessibility: never inherit legacy dark-mode semantic surfaces.
+   app.css's prefers-color-scheme dark selector has greater specificity than :root. */
+:root:not([data-theme]),:root[data-theme="dark"],:root[data-theme="light"]{
+ --good:#176c45;--good-bg:#e5f5eb;--bad:#a52d25;--bad-bg:#ffe8e5;
+ --ink:#111;--muted:#414141;--paper:#fff;--line:#111;color-scheme:light;
+}
+.q .opt{color:#111!important;background:#fff!important;border:2px solid #111!important;opacity:1!important;line-height:1.45;text-align:left;min-height:46px}
+.q .opt:disabled{cursor:default;box-shadow:none;opacity:1!important}
+.q .opt.right,.q .opt.right:disabled{background:#d9f3e5!important;color:#124f35!important;border-color:#176c45!important}
+.q .opt.wrong,.q .opt.wrong:disabled{background:#ffe5e1!important;color:#8a231d!important;border-color:#a52d25!important}
+.q .opt.right::before{content:"✓ ";font-weight:900}
+.q .opt.wrong::before{content:"✕ ";font-weight:900}
+.q .fb,.q .fb.ok,.q .fb.no{color:#111!important;opacity:1!important;border:2px solid #111;padding:12px 14px;line-height:1.55}
+.q .fb.ok{background:#e5f5eb!important;border-left:6px solid #176c45}
+.q .fb.no{background:#ffe8e5!important;border-left:6px solid #a52d25}
+.q .fb b,.q .fb strong{color:#111!important}
+.q .exp{background:#eaf1ff!important;color:#111!important;border-left:5px solid #2f5fb8}
+.q .num{color:#111!important;background:#eaf1ff!important}
+.q .btn,.q button{opacity:1}
+.q .btn:disabled,.q button:disabled:not(.opt){opacity:.65}
+@media(prefers-color-scheme:dark){
+ :root:not([data-theme="light"]){--good:#176c45;--good-bg:#e5f5eb;--bad:#a52d25;--bad-bg:#ffe8e5;--ink:#111;--muted:#414141;--paper:#fff;--line:#111;color-scheme:light}
+}
