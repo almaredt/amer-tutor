@@ -1,5 +1,5 @@
-const demoAvatars={'Amer Hassan':15,'Ali Hassan':16,'Noor Farouk':32,'Adam Farouk':17,'Maya Chen':5,'Leo Chen':18,'Sara Hassan':48,'Omar Farouk':11,'Lina Chen':45,'Aisyah Rahman':47,'Daniel Tan':12,'Kavitha Nair':44,'Jason Lim':13,'Farah Nabila':49,'Muhammad Amir':14};
-const personAvatar=name=>demoAvatars[name]?'<img class="person-demo-avatar" src="https://i.pravatar.cc/150?img='+demoAvatars[name]+'" alt="Sample avatar">':'<span class="person-initial">'+esc(name.slice(0,1))+'</span>';
+const demoAvatars={'Amer Hassan':'amer','Ali Hassan':'ali','Noor Farouk':'noor','Adam Farouk':'adam','Maya Chen':'maya','Leo Chen':'leo','Sara Hassan':'sara','Omar Farouk':'omar','Lina Chen':'lina','Aisyah Rahman':'aisyah','Daniel Tan':'daniel','Kavitha Nair':'kavitha','Jason Lim':'jason','Farah Nabila':'farah','Muhammad Amir':'amir'};
+const personAvatar=name=>demoAvatars[name]?'<img class="person-demo-avatar" src="/demo-avatar/'+demoAvatars[name]+'.svg" alt="Illustrated demo avatar">':'<span class="person-initial">'+esc(name.slice(0,1))+'</span>';
 // Teacher and parent portal — intentionally small and dependency-free.
 const root = $('root');
 const box = (title, content) => '<section class="box"><h2>'+esc(title)+'</h2>'+content+'</section>';
