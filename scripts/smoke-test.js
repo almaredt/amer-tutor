@@ -161,7 +161,7 @@ const server = app.listen(0, async () => {
     assert.ok(listingHtml.includes('txListing')&&listingHtml.includes('/tutor-explore.css'),'dedicated tutor listing loads');
 
     const directoryHTML=await directory.text();
-    assert.ok(directoryHTML.includes('/public-tutors.js'),'public tutor discovery UI loads');
+    assert.ok(directoryHTML.includes('/tutor-explore.js'),'new public tutor discovery UI loads');
     const demoAvatar=await fetch(base+'/demo-avatar/aisyah.svg');
     assert.equal(demoAvatar.status,200,'illustrated avatar available locally');
     assert.ok((await demoAvatar.text()).includes('<svg'),'avatar is SVG');
