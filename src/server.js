@@ -21,7 +21,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://i.pravatar.cc; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   next();
 });
 // Payment webhooks use the raw request body for signature verification.
@@ -155,12 +155,12 @@ const T = auth.requireTeacher, P = auth.requireParent;
 const validId = (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0;
 const linked = (teacher, student) => !!db.prepare('SELECT 1 FROM teacher_students WHERE teacher_id=? AND student_id=?').get(teacher, student);
 const parentOf = (parent, student) => !!db.prepare('SELECT 1 FROM parent_students WHERE parent_id=? AND student_id=?').get(parent, student);
-const demoPhotos = Object.freeze({aisyah:47,daniel:12,kavitha:44,jason:13,farah:49,amir:14});
+const demoPhotos = Object.freeze({aisyah:1,daniel:1,kavitha:1,jason:1,farah:1,amir:1});
 const publicTeacher = (u) => {
  const { username, ...fields }=u;
  const demoKey=/^demo\.teacher\.([a-z]+)$/.exec(username||'')?.[1];
  return { ...fields, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages),
- ...(demoKey && demoPhotos[demoKey] ? {photo_url:'https://i.pravatar.cc/300?img='+demoPhotos[demoKey],is_demo:true}: {}) };
+ ...(demoKey && demoPhotos[demoKey] ? {photo_url:'/demo-avatar/'+demoKey+'.svg',is_demo:true}: {}) };
 };
 // Public catalogue contains only admin-approved tutor profile fields; never expose contact details.
 app.get('/api/public/teachers',(req,res)=>{
@@ -423,6 +423,12 @@ app.post('/api/admin/flags/:id/resolve', A, (req, res) => {
 });
 
 // ---------- pages ----------
+// Self-hosted stylized sample avatars. Names are a fixed allowlist.
+app.get('/demo-avatar/:name.svg',(req,res)=>{
+ const picture=require('./demo-avatars').svg(req.params.name);
+ if(!picture)return res.status(404).end();
+ res.type('image/svg+xml').set('Cache-Control','public,max-age=86400').send(picture);
+});
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '1h' }));
 // Weekly report for the parent (Persian). Admin login, or ?token=REPORT_TOKEN (used by the Friday email task).
 const weekly = require('./weekly');
