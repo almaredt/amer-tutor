@@ -16,7 +16,7 @@ const KIND = { learn: 'New lesson', practice: 'Practice', review: 'Review', mock
 
 async function boot() {
   try { ST.me = await api('/api/me'); }
-  catch (e) { if (e.status === 401) return renderLogin($('root'), (r) => (r.role === 'admin' ? (location.href = '/admin') : boot())); $('root').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  catch (e) { if (e.status === 401) return renderLogin($('root'), (r) => (r.role === 'admin' ? (location.href = '/admin') : ['teacher','parent'].includes(r.role) ? (location.href = '/portal') : boot())); $('root').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   if (ST.me.role === 'admin') { location.href = '/admin'; return; }
   if (ST.me.role === 'teacher' || ST.me.role === 'parent') { location.href = '/portal'; return; }
   // Browser tab shows whoever is logged in, e.g. "Mahan's Study Week".
@@ -74,6 +74,11 @@ function renderShell() {
   document.querySelectorAll('.tabs [data-v]').forEach((b) => (b.onclick = () => setMode(b.dataset.v)));
   wireMenu();
   wireInstall();
+  const teacherPanel=document.createElement('section');
+  teacherPanel.className='panel';teacherPanel.id='teacherPanel';
+  teacherPanel.innerHTML='<h3>From my teachers</h3><p class="note">Loading assignments…</p>';
+  $('studyView').appendChild(teacherPanel);
+  loadTeacherMaterials();
   if (!ST.plan.weeks.length) { renderNoPlan(); return; }
   renderNav(); renderSide();
 }
@@ -552,4 +557,15 @@ async function openSettings() {
     if (k === 'theme') { LOCAL.set('ui-theme', v); applyLook(); toast('Saved'); }
     if (k === 'size') { LOCAL.set('ui-size', v); applyLook(); toast('Saved'); }
   }));
+}
+
+
+async function loadTeacherMaterials(){
+ const panel=$('teacherPanel');if(!panel)return;
+ try{
+  const [items,teachers]=await Promise.all([api('/api/student/materials'),api('/api/student/teachers')]);
+  panel.innerHTML='<h3>From my teachers</h3>'+(items.length?items.map(m=>'<details class="prompt"><summary>'+esc(m.kind.toUpperCase())+' · '+esc(m.title)+' — '+esc(m.teacher)+'</summary><p style="white-space:pre-wrap">'+esc(m.body)+'</p>'+(m.due_at?'<p class="note">Due: '+esc(m.due_at)+'</p>':'')+'</details>').join(''):'<p class="note">No assignments yet.</p>')+
+  (teachers.length?'<h3>Ask my teacher</h3><label class="field">Teacher<select id="askTeacher">'+teachers.map(t=>'<option value="'+t.id+'">'+esc(t.display_name)+'</option>').join('')+'</select></label><textarea id="askText" maxlength="2000" placeholder="Ask your question…"></textarea><button class="btn primary s-Math" id="askSend">Send question</button><p id="askStatus"></p>':'');
+  const btn=$('askSend');if(btn)btn.onclick=async()=>{const tid=Number($('askTeacher').value),body=$('askText').value.trim();if(!body)return;try{await api('/api/messages/'+ST.me.id+'/'+tid,{body});$('askStatus').textContent='Sent to teacher.';$('askText').value='';}catch(e){$('askStatus').textContent=e.message;}};
+ }catch(e){panel.innerHTML='<h3>From my teachers</h3><p class="note">'+esc(e.message)+'</p>';}
 }
