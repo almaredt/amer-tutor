@@ -284,6 +284,19 @@ CREATE TABLE IF NOT EXISTS point_movements (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_point_booking_kind ON point_movements(booking_id,kind) WHERE booking_id IS NOT NULL;
 `);
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS point_refund_requests (
+ id INTEGER PRIMARY KEY,
+ booking_id INTEGER NOT NULL UNIQUE REFERENCES lesson_bookings(id),
+ parent_id INTEGER NOT NULL REFERENCES users(id),
+ reason TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'requested' CHECK(status IN ('requested','approved','rejected')),
+ reviewed_by INTEGER REFERENCES users(id),
+ reviewed_at TEXT,
+ created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
 // Seed / refresh the hand-written bank (fixes in question-bank.js reach the DB on restart).
 function seedBank() {
   const upsert = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, course_id)
