@@ -160,7 +160,7 @@ const publicTeacher = (u) => {
  const { username, ...fields }=u;
  const demoKey=/^demo\.teacher\.([a-z]+)$/.exec(username||'')?.[1];
  return { ...fields, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages),
- ...(demoKey && demoPhotos[demoKey] ? {photo_url:'/demo-avatar/'+demoKey+'.svg',is_demo:true}: {}) };
+ ...(demoKey && demoPhotos[demoKey] ? {photo_url:(['aisyah','daniel','kavitha','jason'].includes(demoKey) && require('fs').existsSync(path.join(__dirname,'..','public','demo-portraits',demoKey+'.webp'))?'/demo-portraits/'+demoKey+'.webp':'/demo-avatar/'+demoKey+'.svg'),is_demo:true}: {}) };
 };
 // Public catalogue contains only admin-approved tutor profile fields; never expose contact details.
 app.get('/api/public/teachers',(req,res)=>{
