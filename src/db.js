@@ -297,6 +297,16 @@ CREATE TABLE IF NOT EXISTS point_refund_requests (
 );
 `);
 
+// Self-service account portraits. Keep student and parent images private.
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_avatars (
+ user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+ mime TEXT NOT NULL CHECK(mime IN ('image/jpeg','image/png','image/webp')),
+ image BLOB NOT NULL,
+ updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
 // Seed / refresh the hand-written bank (fixes in question-bank.js reach the DB on restart).
 function seedBank() {
   const upsert = db.prepare(`INSERT INTO questions (id, subject, set_code, topic, type, body, source, course_id)
