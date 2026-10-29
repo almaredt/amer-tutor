@@ -123,3 +123,73 @@ html{scroll-behavior:smooth}body.tutor-public{margin:0;background:var(--tx-bg)!i
 .tx-profile-portrait img[src*="/demo-portraits/"]{object-position:center 15%}
 .tx-card .tx-photo img,.tx-profile-portrait img{transition:transform .18s ease}
 @media(hover:hover){.tx-card:hover .tx-photo img{transform:scale(1.035)}}
+
+/* FIX: portraits must never overlap card copy or View Profile actions.
+   Lock image geometry independently of portrait intrinsic size. */
+.tx-grid > .tx-card{
+  isolation:isolate;
+  overflow:hidden;
+  align-items:stretch;
+}
+.tx-card > .tx-photo{
+  display:block;
+  position:relative;
+  width:calc(100% - 26px);
+  aspect-ratio:5 / 4;
+  height:auto;
+  min-height:0;
+  flex:0 0 auto;
+  contain:layout paint;
+  isolation:isolate;
+  overflow:hidden;
+}
+.tx-card > .tx-photo > img,
+.tx-card > .tx-photo > .tx-avatar-fallback{
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  min-height:0;
+  max-width:100%;
+  max-height:100%;
+  object-fit:cover;
+  object-position:center 26%;
+  z-index:0;
+}
+.tx-card > .tx-photo > .tx-avatar-fallback{display:grid}
+.tx-card > .tx-photo > .tx-status{z-index:2}
+.tx-card > .tx-card-body{
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex:1 0 auto;
+  width:100%;
+  min-width:0;
+  background:var(--tx-panel);
+}
+.tx-card > .tx-card-body > .tx-primary{
+  position:relative;
+  z-index:3;
+  display:flex;
+  min-height:47px;
+  width:100%;
+  margin-top:12px;
+  background:#2563eb!important;
+  color:#fff!important;
+  border:2.5px solid #000!important;
+  box-shadow:3px 3px 0 #000!important;
+  opacity:1!important;
+  text-shadow:none!important;
+  font-weight:900!important;
+  line-height:1.2;
+}
+.tx-card > .tx-card-body > .tx-primary:hover{
+  background:#174fd0!important;
+  color:#fff!important;
+  transform:translate(2px,2px);
+  box-shadow:1px 1px 0 #000!important;
+}
+.tx-card > .tx-heart{z-index:5}
+.tx-profile-portrait{position:relative;overflow:hidden}
+.tx-profile-portrait > img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
