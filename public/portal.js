@@ -10,16 +10,21 @@ async function boot(){
   if(!['teacher','parent'].includes(me.role)){location.href=me.role==='admin'?'/admin' :'/study';return;}
   root.innerHTML='<header><div class="portal-user-heading">'+(me.avatar_url?'<img class="person-demo-avatar" src="/api/me/avatar?v='+Date.now()+'" alt="My profile photo">':personAvatar(me.name))+'<div><div class="brand">AMER TUTOR / '+esc(me.role.toUpperCase())+'</div><h1>'+esc(me.name)+'</h1><p class="muted">Learn. Practice. Improve.</p></div></div><button id="signout">Log out</button></header><div id="content"></div>';
   $('signout').onclick=logout;
-  const photoEditor=document.createElement('div');photoEditor.id='portalAccountPhoto';
-  root.querySelector('header').after(photoEditor);
-  AccountPhoto.mount(photoEditor,me,{onChange:()=>{
-   const slot=root.querySelector('.portal-user-heading');
-   if(slot){const old=slot.querySelector('.person-demo-avatar,.person-initial');if(old){
+  // Parent editor stays in the header; teacher editor is mounted inside My teaching profile.
+  function updateHeaderPhoto(){
+    const slot=root.querySelector('.portal-user-heading');
+    const old=slot?.querySelector('.person-demo-avatar,.person-initial');
+    if(!old)return;
     const holder=document.createElement('span');
     holder.innerHTML=me.avatar_url?'<img class="person-demo-avatar" src="/api/me/avatar?v='+Date.now()+'" alt="My profile photo">':personAvatar(me.name);
     old.replaceWith(holder.firstElementChild);
-   }}
-  }});
+  }
+  const mountMyPhoto=host=>AccountPhoto.mount(host,me,{onChange:updateHeaderPhoto});
+  if(me.role==='parent'){
+    const photoEditor=document.createElement('div');photoEditor.id='portalAccountPhoto';
+    root.querySelector('header').after(photoEditor);
+    mountMyPhoto(photoEditor);
+  }
 
   if(me.role==='teacher')await teacher();else await parent();
 }
@@ -31,6 +36,11 @@ async function teacher(){
       ['subjects','grades','curricula','languages'].map(k=>'<label>'+esc(k)+' (comma separated)<input name="'+k+'" value="'+esc((p[k]||[]).join(', '))+'"></label>').join('')+
       '<div class="cards"><label>45 minutes · points<input type="number" min="0" max="100000" name="rate_45_aed" value="'+esc(p.rate_45_aed??'')+'"></label><label>60 minutes · points<input type="number" min="0" max="100000" name="rate_60_aed" value="'+esc(p.rate_60_aed??'')+'"></label></div><button class="primary">Save profile</button><p id="profileMsg"></p></form>')+
       box('My students',data.students.length?'<div class="cards">'+data.students.map(s=>'<article class="box"><div class="person-card-head">'+personAvatar(s.display_name)+'<b>'+esc(s.display_name)+'</b></div><p class="small">'+esc(s.programme||'')+' · Grade '+esc(s.grade||'—')+'</p><button data-progress="'+s.id+'">View progress</button><button data-compose="'+s.id+'">Send lesson / task</button><button data-chat="'+s.id+'">Messages</button><div id="detail-'+s.id+'"></div></article>').join('')+'</div>':'<p class="muted">Admin has not assigned students yet.</p>');
+    // Keep the upload control visible in the actual Teacher Profile tab.
+    const teacherPhoto=document.createElement('div');
+    teacherPhoto.id='teacherAccountPhoto';
+    c.querySelector('#profile').before(teacherPhoto);
+    mountMyPhoto(teacherPhoto);
     c.insertAdjacentHTML('beforeend',box('Weekly teaching calendar','<div id="availabilityCalendar"></div>'));
     AvailabilityCalendar.mount($('availabilityCalendar'),availability,slots=>api('/api/teacher/availability',{slots},'PUT'));
     const agenda=[...bookings].sort((a,b)=>['requested','confirmed','completed','cancelled'].indexOf(a.status)-['requested','confirmed','completed','cancelled'].indexOf(b.status)||a.start_at.localeCompare(b.start_at));
