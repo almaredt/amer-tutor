@@ -108,3 +108,18 @@ html{scroll-behavior:smooth}body.tutor-public{margin:0;background:var(--tx-bg)!i
 .tx-thumbs button:nth-child(2) img{filter:saturate(.8) contrast(1.07)}
 .tx-thumbs button:nth-child(3) img{filter:hue-rotate(-12deg)}
 .tx-thumbs button:nth-child(4) img{filter:saturate(1.2)}
+
+/* Reference-matched high-resolution demo character portraits */
+.tx-card .tx-photo img[src*="/demo-portraits/"],
+.tx-profile-portrait img[src*="/demo-portraits/"],
+.tx-thumbs img[src*="/demo-portraits/"]{
+ object-fit:cover;
+ object-position:center 22%;
+}
+.tx-card .tx-photo:has(img[src*="/demo-portraits/"]),
+.tx-profile-portrait:has(img[src*="/demo-portraits/"]){
+ background:#f1f3f6;
+}
+.tx-profile-portrait img[src*="/demo-portraits/"]{object-position:center 15%}
+.tx-card .tx-photo img,.tx-profile-portrait img{transition:transform .18s ease}
+@media(hover:hover){.tx-card:hover .tx-photo img{transform:scale(1.035)}}
