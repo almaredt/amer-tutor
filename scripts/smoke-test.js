@@ -188,6 +188,12 @@ const server = app.listen(0, async () => {
     assert.ok(publicTutors.every(t=>!('username' in t)&&!('password_hash' in t)),'no private teacher account fields in directory');
     const portalHTML=await (await fetch(base+'/portal')).text();
     assert.ok(portalHTML.includes('/tutor-marketplace.js')&&portalHTML.includes('/portal-workspace.js'),'marketplace and workspaces loaded');
+    assert.ok(portalHTML.includes('/account-photo.js?v=3')&&portalHTML.includes('/portal.js?v=3'),'portal photo editor and fresh JS linked');
+    const portalSource=await (await fetch(base+'/portal.js')).text();
+    assert.ok(portalSource.includes("teacherPhoto.id='teacherAccountPhoto'")&&portalSource.includes('mountMyPhoto(teacherPhoto)'),'teacher photo editor rendered inside profile');
+    const tabsSource=await (await fetch(base+'/portal-workspace.js')).text();
+    assert.ok(tabsSource.includes('My teaching profile/i.test(x)'), 'teacher profile is default tab');
+
     assert.ok((await (await fetch(base+'/')).text()).includes('homeTutorGrid'),'home has searchable tutor directory');
     const landing = await (await fetch(base + '/')).text();
     assert.ok(landing.includes('LEARN') && landing.includes('/login'), 'public landing page available');
