@@ -53,6 +53,16 @@ const server = app.listen(0, async () => {
     assert.equal((await req('s', 'GET', '/api/admin/overview')).status, 403, 'student cannot see admin');
     const me = (await req('s', 'GET', '/api/me')).data;
     assert.equal(me.course.id, 'uptown-g9-2026t1'); assert.equal(me.profile.grade, 9); assert.equal(me.profile.class_name, '9B');
+    // Personal photo: authenticated owner controls private photo only.
+    const tinyPng='data:image/png;base64,'+Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000b49444154789c636000020000050001a5f645400000000049454e44ae426082','hex').toString('base64');
+    assert.equal((await req('x','GET','/api/me/avatar')).status,401,'avatar access requires a session');
+    assert.equal((await req('s','PUT','/api/me/avatar',{data:'data:image/svg+xml;base64,PHN2Zz4='})).status,400,'SVG avatar upload forbidden');
+    assert.equal((await req('s','PUT','/api/me/avatar',{data:tinyPng})).status,200,'student avatar saved');
+    assert.equal((await req('s','GET','/api/me')).data.avatar_url,'/api/me/avatar','own avatar URL exposed to account');
+    assert.equal((await req('x','GET','/api/public/teachers/'+me.id+'/avatar')).status,404,'student portrait not public');
+    assert.equal((await req('s','GET','/api/me/avatar')).status,200,'student can read own image');
+    assert.equal((await req('s','DELETE','/api/me/avatar')).status,200,'student can remove own image');
+    assert.equal((await req('s','GET','/api/me')).data.avatar_url,null,'removed avatar no longer exposed');
     const plan = await req('s', 'GET', '/api/plan');
     assert.equal(plan.data.weeks.length, 9); assert.equal(plan.data.weeks[0].days.length, 7);
 
@@ -363,6 +373,11 @@ const server = app.listen(0, async () => {
     const tid=teacherCreate.data.id,pid=parentCreate.data.id;
     assert.equal((await req('teacher','POST','/api/login',{username:'tutor01',password:'teachpass1'})).status,200);
     assert.equal((await req('parent','POST','/api/login',{username:'parent01',password:'parentpass1'})).status,200);
+    assert.equal((await req('teacher','PUT','/api/me/avatar',{data:tinyPng})).status,200,'teacher can upload portrait');
+    assert.equal((await req('parent','PUT','/api/me/avatar',{data:tinyPng})).status,200,'parent can upload portrait');
+    assert.equal((await req('x','GET','/api/public/teachers/'+pid+'/avatar')).status,404,'parent photo never public');
+    assert.equal((await req('teacher','GET','/api/me/avatar')).status,200,'teacher reads own portrait');
+
     assert.equal((await req('parent','GET','/api/teacher/me')).status,403);
     assert.equal((await req('teacher','GET','/api/parent/children')).status,403);
     assert.equal((await req('parent','GET','/api/parent/children/'+uid+'/progress')).status,404,'unlinked parent cannot see child');
