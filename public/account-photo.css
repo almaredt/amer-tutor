@@ -1,0 +1,16 @@
+/* Self-service account portrait — square neobrutalist surface. */
+.account-photo-widget{display:flex;align-items:center;flex-wrap:wrap;gap:20px;padding:18px;border:2px solid #000;background:var(--paper,#fff);color:var(--ink,#111);box-shadow:4px 4px 0 #000;margin:16px 0 23px;max-width:100%;box-sizing:border-box}
+.account-photo-preview{width:116px;height:116px;flex:0 0 116px;display:grid;place-items:center;overflow:hidden;border:3px solid #000;background:#eaf1ff;color:#1d4ed8;font:900 48px Sora,sans-serif}
+.account-photo-preview img{width:100%;height:100%;display:block;object-fit:cover;object-position:center}
+.account-photo-controls{flex:1 1 210px;min-width:0}
+.account-photo-controls strong{font:900 17px Sora,sans-serif;display:block}
+.account-photo-controls p{font-size:13px;line-height:1.5;margin:8px 0}
+.account-photo-button,.account-photo-remove{display:inline-flex!important;align-items:center;justify-content:center;position:relative;border:2px solid #000!important;border-radius:0!important;box-shadow:3px 3px 0 #000!important;padding:10px 14px!important;font:900 13px "Atkinson Hyperlegible",sans-serif!important;margin:4px 8px 4px 0;cursor:pointer}
+.account-photo-button{background:#2563eb!important;color:#fff!important;overflow:hidden}
+.account-photo-button input{position:absolute;width:1px;height:1px;opacity:0;left:-999px}
+.account-photo-button:focus-within{outline:3px solid #2563eb;outline-offset:3px}
+.account-photo-remove{background:#fff!important;color:#000!important}
+.account-photo-remove:disabled{opacity:.45!important;cursor:not-allowed}
+.account-photo-status{font-weight:700;min-height:18px}
+.account-photo-widget button:hover:not(:disabled),.account-photo-button:hover{transform:translate(2px,2px);box-shadow:1px 1px 0 #000!important}
+@media(max-width:480px){.account-photo-preview{width:90px;height:90px;flex-basis:90px}.account-photo-widget{gap:12px;padding:12px}}
