@@ -26,8 +26,8 @@ app.use((req, res, next) => {
 });
 // Payment webhooks use the raw request body for signature verification.
 // Small JSON bodies everywhere, except photo uploads of handwritten working.
-const jsonSmall = express.json({ limit: '64kb' }), jsonPhoto = express.json({ limit: '4mb' });
-app.use((req, res, next) => (/^\/api\/runs\/[^/]+\/photo$/.test(req.path) ? jsonPhoto : jsonSmall)(req, res, next));
+const jsonSmall = express.json({ limit: '64kb' }), jsonPhoto = express.json({ limit: '4mb' }), jsonAvatar = express.json({limit:'420kb'});
+app.use((req, res, next) => (req.path === '/api/me/avatar' ? jsonAvatar : /^\/api\/runs\/[^/]+\/photo$/.test(req.path) ? jsonPhoto : jsonSmall)(req, res, next));
 app.use(auth.loadUser);
 
 // CSRF protection: every state-changing API call must carry this header (browsers won't add it cross-site).
@@ -52,8 +52,43 @@ app.post('/api/logout', (req, res) => { auth.destroySession(req, res); res.json(
 app.get('/api/me', auth.requireUser, (req, res) => {
   const C = req.user.role === 'student' ? courses.forUser(req.user.id) : null;
   const p = req.user.role === 'student' ? profiles.get(req.user.id) : null;
-  res.json({ ...req.user, today: new Date().toISOString().slice(0, 10), termStart: C ? C.TERM_START : null,
+  res.json({ ...req.user, avatar_url: avatarExists.get(req.user.id)?'/api/me/avatar':null, today: new Date().toISOString().slice(0, 10), termStart: C ? C.TERM_START : null,
     course: C ? C.summary() : null, profile: p && { school: p.school, programme: p.programme, grade: p.grade, class_name: p.class_name } });
+});
+// User-owned picture: JPEG, PNG or WebP only, max 256 KiB after client resize.
+// Never serve student/parent photos by guessable user ID.
+const avatarExists=db.prepare('SELECT 1 AS found FROM user_avatars WHERE user_id=?');
+const sendAvatar=(res,id)=>{
+ const photo=db.prepare('SELECT mime,image,updated_at FROM user_avatars WHERE user_id=?').get(id);
+ if(!photo)return res.status(404).end();
+ res.type(photo.mime).set('Cache-Control','private,no-store').set('X-Content-Type-Options','nosniff').send(photo.image);
+};
+app.get('/api/me/avatar',auth.requireUser,(req,res)=>sendAvatar(res,req.user.id));
+app.put('/api/me/avatar',auth.requireUser,(req,res)=>{
+ const data=req.body?.data;
+ if(typeof data!=='string'||data.length>360000||!/^data:image\/(jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(data))
+  return res.status(400).json({error:'Choose a JPEG, PNG or WebP picture under 256 KB.'});
+ const mime='image/'+data.slice(11,data.indexOf(';'));
+ const bytes=Buffer.from(data.slice(data.indexOf(',')+1),'base64');
+ if(bytes.length===0||bytes.length>262144)return res.status(413).json({error:'Picture is too large (256 KB max).'});
+ const jpeg=bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;
+ const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+ const webp=bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP';
+ if(!((mime==='image/jpeg'&&jpeg)||(mime==='image/png'&&png)||(mime==='image/webp'&&webp)))return res.status(400).json({error:'File format does not match its image data.'});
+ db.prepare("INSERT INTO user_avatars(user_id,mime,image) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET mime=excluded.mime,image=excluded.image,updated_at=datetime('now')").run(req.user.id,mime,bytes);
+ res.json({ok:true,avatar_url:'/api/me/avatar?v='+Date.now()});
+});
+app.delete('/api/me/avatar',auth.requireUser,(req,res)=>{
+ db.prepare('DELETE FROM user_avatars WHERE user_id=?').run(req.user.id);
+ res.json({ok:true});
+});
+// Approved tutors may display a public profile picture; other roles remain private.
+app.get('/api/public/teachers/:id/avatar',(req,res)=>{
+ const id=Number(req.params.id);
+ if(!Number.isSafeInteger(id)||id<1)return res.status(404).end();
+ const approved=db.prepare("SELECT 1 FROM users u JOIN teacher_profiles t ON t.user_id=u.id WHERE u.id=? AND u.role='teacher' AND u.active=1 AND t.approved=1").get(id);
+ if(!approved)return res.status(404).end();
+ sendAvatar(res,id);
 });
 app.post('/api/me/password', auth.requireUser, (req, res) => {
   const { current, next } = req.body;
@@ -160,7 +195,7 @@ const publicTeacher = (u) => {
  const { username, ...fields }=u;
  const demoKey=/^demo\.teacher\.([a-z]+)$/.exec(username||'')?.[1];
  return { ...fields, subjects: JSON.parse(u.subjects), grades: JSON.parse(u.grades), curricula: JSON.parse(u.curricula), languages: JSON.parse(u.languages),
- ...(demoKey && demoPhotos[demoKey] ? {photo_url:(['aisyah','daniel','kavitha','jason'].includes(demoKey) && require('fs').existsSync(path.join(__dirname,'..','public','demo-portraits',demoKey+'.webp'))?'/demo-portraits/'+demoKey+'.webp':'/demo-avatar/'+demoKey+'.svg'),is_demo:true}: {}) };
+ ...(demoKey && demoPhotos[demoKey] ? {is_demo:true}: {}), photo_url: avatarExists.get(u.id)?'/api/public/teachers/'+u.id+'/avatar':(demoKey && demoPhotos[demoKey] ? (['aisyah','daniel','kavitha','jason'].includes(demoKey) && require('fs').existsSync(path.join(__dirname,'..','public','demo-portraits',demoKey+'.webp'))?'/demo-portraits/'+demoKey+'.webp':'/demo-avatar/'+demoKey+'.svg'):null) };
 };
 // Public catalogue contains only admin-approved tutor profile fields; never expose contact details.
 app.get('/api/public/teachers',(req,res)=>{
