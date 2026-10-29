@@ -47,7 +47,7 @@ async function loadPlan(pickToday) {
 function renderShell() {
   $('root').innerHTML = `
   <div class="topbar"><div class="tabs"><button data-v="study" class="sel">Study plan</button><button data-v="progress">My progress</button>${ST.me.course && ST.me.course.learn ? '<button data-v="learn">Learn topics</button>' : ''}</div>
-    <div class="menu-wrap"><span class="who-name">${esc(ST.me.name)}</span>
+    <div class="menu-wrap"><span id="studentMenuAvatar" class="student-account-avatar">${ST.me.avatar_url?'<img src="/api/me/avatar?v='+Date.now()+'" alt="My profile photo">':esc((ST.me.name||'?').charAt(0))}</span><span class="who-name">${esc(ST.me.name)}</span>
       <button class="icon-btn" id="menuBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false">${ICON.menu}</button>
       <div class="menu" id="menu" role="menu" hidden>
         <div class="menu-head"><b>${esc(ST.me.name)}</b><span class="note">@${esc(ST.me.username || '')}</span></div>
@@ -543,6 +543,11 @@ async function openSettings() {
     <div class="set-row"><div><b>Symbol shortcuts</b><p class="note">x^2 → x², sqrt → √, H2O → H₂O while typing.</p></div>
       <label class="switch"><input type="checkbox" id="setMk" ${LOCAL.get('mathkeys-auto', '1') !== '0' ? 'checked' : ''}><span></span></label></div>
     <p class="note">Theme, text size and shortcuts are saved on this device; Claude and session length are saved to your account.</p>`;
+  // Account photo editor stays in Settings and updates the menu avatar immediately.
+  const photoHost=document.createElement('div');
+  photoHost.id='studentAccountPhoto';
+  box.querySelector('.set-head').after(photoHost);
+  AccountPhoto.mount(photoHost,ST.me,{onChange:()=>{const avatar=$('studentMenuAvatar');if(avatar){avatar.innerHTML=ST.me.avatar_url?'<img src="/api/me/avatar?v='+Date.now()+'" alt="My profile photo">':esc((ST.me.name||'?').charAt(0));}}});
   $('setClose').onclick = () => { box.hidden = true; };
   const savePrefs = async (body) => {
     try { ST.prefs = await api('/api/me/prefs', body); toast('Saved'); if (ST.run && ST.mode === 'study') reloadRun().catch(() => {}); }
