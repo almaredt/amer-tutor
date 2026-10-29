@@ -20,7 +20,7 @@ function enhance(role,info){
  host.prepend(nav);host.prepend(intro);
  function show(i){sections.forEach((s,n)=>{s.hidden=n!==i;s.classList.toggle('workspace-current',n===i);});nav.querySelectorAll('button').forEach((b,n)=>{b.classList.toggle('active',n===i);b.setAttribute('aria-pressed',String(n===i));});}
  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>show(Number(b.dataset.tab)));
- show(role==='parent'?Math.max(0,labels.findIndex(x=>/Find your tutor/i.test(x))):Math.max(0,labels.findIndex(x=>/Lesson bookings/i.test(x))));
+ show(role==='parent'?Math.max(0,labels.findIndex(x=>/Find your tutor/i.test(x))):Math.max(0,labels.findIndex(x=>/My teaching profile/i.test(x))));
 }
 window.PortalWorkspace={enhance};
 })();
