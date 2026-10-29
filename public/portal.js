@@ -4,14 +4,10 @@ const personAvatar=name=>demoAvatars[name]?'<img class="person-demo-avatar" src=
 const root = $('root');
 const box = (title, content) => '<section class="box"><h2>'+esc(title)+'</h2>'+content+'</section>';
 const err = (e) => '<p class="error">'+esc(e.message)+'</p>';
-async function boot(){
-  let me;try{me=await api('/api/me');}catch(e){if(e.status===401){renderLogin(root,(r)=>['teacher','parent'].includes(r.role)?boot():location.assign(r.role==='admin'?'/admin' :'/study'));return;}root.innerHTML=err(e);return;}
-  activeMeId=me.id;
-  if(!['teacher','parent'].includes(me.role)){location.href=me.role==='admin'?'/admin' :'/study';return;}
-  root.innerHTML='<header><div class="portal-user-heading">'+(me.avatar_url?'<img class="person-demo-avatar" src="/api/me/avatar?v='+Date.now()+'" alt="My profile photo">':personAvatar(me.name))+'<div><div class="brand">AMER TUTOR / '+esc(me.role.toUpperCase())+'</div><h1>'+esc(me.name)+'</h1><p class="muted">Learn. Practice. Improve.</p></div></div><button id="signout">Log out</button></header><div id="content"></div>';
-  $('signout').onclick=logout;
-  // Parent editor stays in the header; teacher editor is mounted inside My teaching profile.
-  function updateHeaderPhoto(){
+let portalMe=null;
+function updateHeaderPhoto(){
+    const me=portalMe;
+    if(!me)return;
     const slot=root.querySelector('.portal-user-heading');
     const old=slot?.querySelector('.person-demo-avatar,.person-initial');
     if(!old)return;
@@ -19,7 +15,15 @@ async function boot(){
     holder.innerHTML=me.avatar_url?'<img class="person-demo-avatar" src="/api/me/avatar?v='+Date.now()+'" alt="My profile photo">':personAvatar(me.name);
     old.replaceWith(holder.firstElementChild);
   }
-  const mountMyPhoto=host=>AccountPhoto.mount(host,me,{onChange:updateHeaderPhoto});
+function mountMyPhoto(host){ if(portalMe)AccountPhoto.mount(host,portalMe,{onChange:updateHeaderPhoto}); }
+
+async function boot(){
+  let me;try{me=await api('/api/me');}catch(e){if(e.status===401){renderLogin(root,(r)=>['teacher','parent'].includes(r.role)?boot():location.assign(r.role==='admin'?'/admin' :'/study'));return;}root.innerHTML=err(e);return;}
+  activeMeId=me.id;
+  portalMe=me;
+  if(!['teacher','parent'].includes(me.role)){location.href=me.role==='admin'?'/admin' :'/study';return;}
+  root.innerHTML='<header><div class="portal-user-heading">'+(me.avatar_url?'<img class="person-demo-avatar" src="/api/me/avatar?v='+Date.now()+'" alt="My profile photo">':personAvatar(me.name))+'<div><div class="brand">AMER TUTOR / '+esc(me.role.toUpperCase())+'</div><h1>'+esc(me.name)+'</h1><p class="muted">Learn. Practice. Improve.</p></div></div><button id="signout">Log out</button></header><div id="content"></div>';
+  $('signout').onclick=logout;
   if(me.role==='parent'){
     const photoEditor=document.createElement('div');photoEditor.id='portalAccountPhoto';
     root.querySelector('header').after(photoEditor);
